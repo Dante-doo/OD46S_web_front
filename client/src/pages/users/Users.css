@@ -1,0 +1,44 @@
+.users-page {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.search-bar {
+  margin-bottom: 1.5rem;
+}
+
+.search-bar .input-group {
+  max-width: 500px;
+}
+
+.search-bar .input-group-text {
+  background-color: #f8f9fa;
+  border-right: none;
+}
+
+.search-bar .form-control {
+  border-left: none;
+}
+
+.search-bar .form-control:focus {
+  border-color: #ced4da;
+  box-shadow: none;
+}
+
+/* Reutilizar estilos do Vehicles.css para modal e tabela */
+.loading-container,
+.table-container,
+.modal-overlay,
+.modal-content,
+.modal-header,
+.modal-body,
+.modal-footer,
+.form-group,
+.form-control,
+.action-buttons {
+  /* Estilos já definidos em Vehicles.css */
+}
+

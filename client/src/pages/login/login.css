@@ -1,9 +1,15 @@
 .login-background {
-    position: relative;
-    width: 100%;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
     height: 100vh;
+    min-height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
     background-color: rgba(33, 72, 192, 0.7);
-    background: url("/public/imagem_background.jpg") no-repeat center center/cover;
+    background: url("/imagem_background.jpg") no-repeat center center/cover;
+    background-attachment: fixed;
     font-family: 'Montserrat', sans-serif;
 }
 
@@ -13,16 +19,51 @@
     left: 0;
     width: 100%;
     height: 100%;
+    min-height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
     background-color: rgba(33, 72, 192, 0.7);
     display: flex;
     justify-content: center;
     align-items: center;
     font-family: 'Montserrat', sans-serif;
-
 }
 
 .login-container {
-    width: 300px;
+    width: 100%;
+    max-width: 400px;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.login-logo {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.logo-image {
+    width: 100%;
+    max-width: 150px;
+    height: auto;
+}
+
+.login-container h3 {
+    margin-bottom: 15px !important;
+    font-size: 1.3rem;
+}
+
+.login-container .alert {
+    margin-bottom: 10px;
+    font-size: 0.85rem;
+    padding: 8px 12px;
+}
+
+.login-container .mb-3 {
+    margin-bottom: 12px !important;
+}
+
+.login-container .input-icon {
+    margin-bottom: 12px;
 }
 
 .login-container .form-control {
@@ -30,6 +71,8 @@
     border: 1px solid white !important;
     color: white !important;
     font-weight: 700;
+    padding: 10px 10px 10px 35px;
+    font-size: 0.9rem;
 }
 
 .login-container .form-control::placeholder {
@@ -60,44 +103,30 @@
     transform: translateY(-50%);
     color: white;
     font-size: 1rem;
+    z-index: 1;
 }
 
 .input-icon .form-control {
     padding-left: 35px;
-    background-color: transparent !important;
-    border: 1px solid white !important;
-    color: white !important;
-    font-weight: 700;
-}
-
-.input-icon .form-control::placeholder {
-    color: rgba(255, 255, 255, 0.7);
-    font-weight: 700;
-}
-
-.input-icon .form-control:focus {
-    outline: none;
-    box-shadow: none !important;
-    color: white !important;
 }
 
 .btn-login {
     background-color: white;
     color: #2148C0;
     font-weight: 700;
-    margin-top: 50px;
+    margin-top: 15px;
+    padding: 10px;
+    font-size: 0.9rem;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
     transition: all 0.3s ease;
 }
 
-.login-logo {
-    text-align: center;
-    margin-bottom: 40px;
+.btn-login:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
 }
 
-.logo-image {
-    width: 300px;
-    height: auto;
+.btn-login:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
 }
-
-
