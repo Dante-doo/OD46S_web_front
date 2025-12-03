@@ -1,29 +1,92 @@
 import React, { useState } from "react";
 import { FaRegUser } from "react-icons/fa";
 import { FiLock } from "react-icons/fi";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { API_ENDPOINTS } from "../../config/api";
 import "./login.css";
+
+interface LoginRequest {
+    cpf?: string;
+    email?: string;
+    password: string;
+}
+
+interface AuthResponse {
+    token: string;
+    email: string;
+    name: string;
+    type: string;
+}
 
 const Login: React.FC = () => {
     const navigate = useNavigate();
 
     const [cpf, setCpf] = useState("");
     const [senha, setSenha] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
 
-    const handleLogin = () => {
-        const motoristaStr = localStorage.getItem("motorista");
-        if (!motoristaStr) {
-            alert("Nenhum cadastro encontrado. Por favor, registre-se primeiro.");
+    const handleLogin = async () => {
+        if (!cpf.trim() || !senha.trim()) {
+            setError("Por favor, preencha CPF e senha.");
             return;
         }
 
-        const motorista = JSON.parse(motoristaStr);
+        setLoading(true);
+        setError("");
 
-        if (motorista.cpf === cpf && motorista.senha === senha) {
-            alert("Login realizado com sucesso!");
-            navigate("/lista_caminhoes");
-        } else {
-            alert("CPF ou senha incorretos!");
+        try {
+            const loginRequest: LoginRequest = {
+                cpf: cpf.trim(),
+                password: senha,
+            };
+
+            const response = await fetch(API_ENDPOINTS.AUTH.LOGIN, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(loginRequest),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(
+                    errorData.error?.message || 
+                    "Credenciais inválidas. Verifique seu CPF e senha."
+                );
+            }
+
+            const authResponse: AuthResponse = await response.json();
+
+            // Validar que apenas ADMIN pode fazer login no frontend
+            if (authResponse.type !== "ADMIN") {
+                throw new Error("Acesso negado. Apenas administradores podem acessar o sistema.");
+            }
+
+            // Armazenar token e informações do usuário
+            localStorage.setItem("token", authResponse.token);
+            localStorage.setItem("user", JSON.stringify({
+                email: authResponse.email,
+                name: authResponse.name,
+                type: authResponse.type,
+            }));
+
+            // Redirecionar para o dashboard
+            navigate("/dashboard");
+        } catch (err) {
+            const errorMessage = err instanceof Error 
+                ? err.message 
+                : "Erro ao fazer login. Tente novamente.";
+            setError(errorMessage);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleKeyPress = (e: React.KeyboardEvent) => {
+        if (e.key === "Enter") {
+            handleLogin();
         }
     };
 
@@ -41,7 +104,13 @@ const Login: React.FC = () => {
 
                     <h3 className="text-white text-center mb-4 fw-bold">FAÇA SEU LOGIN</h3>
 
-                    <form onSubmit={(e) => e.preventDefault()}>
+                    {error && (
+                        <div className="alert alert-danger" role="alert">
+                            {error}
+                        </div>
+                    )}
+
+                    <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
                         <div className="mb-3 input-icon">
                             <FaRegUser className="icon" />
                             <input
@@ -49,7 +118,12 @@ const Login: React.FC = () => {
                                 className="form-control"
                                 placeholder="CPF"
                                 value={cpf}
-                                onChange={(e) => setCpf(e.target.value)}
+                                onChange={(e) => {
+                                    setCpf(e.target.value);
+                                    setError("");
+                                }}
+                                onKeyPress={handleKeyPress}
+                                disabled={loading}
                             />
                         </div>
 
@@ -60,23 +134,22 @@ const Login: React.FC = () => {
                                 className="form-control"
                                 placeholder="SENHA"
                                 value={senha}
-                                onChange={(e) => setSenha(e.target.value)}
+                                onChange={(e) => {
+                                    setSenha(e.target.value);
+                                    setError("");
+                                }}
+                                onKeyPress={handleKeyPress}
+                                disabled={loading}
                             />
                         </div>
 
                         <button
-                            type="button"
+                            type="submit"
                             className="btn btn-login w-100"
-                            onClick={handleLogin}
+                            disabled={loading}
                         >
-                            ENTRAR
+                            {loading ? "ENTRANDO..." : "ENTRAR"}
                         </button>
-
-                        <div className="mt-3 d-flex justify-content-end">
-                            <Link to="/register" className="text-white fw-bold btn-register">
-                                Registrar
-                            </Link>
-                        </div>
                     </form>
                 </div>
             </div>
