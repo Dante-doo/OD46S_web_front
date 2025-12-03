@@ -146,11 +146,6 @@ const Dashboard: React.FC = () => {
   return (
     <Layout>
       <div className="dashboard">
-        <div className="dashboard-header">
-          <h2>Visão Geral do Sistema</h2>
-          <p className="text-muted">Resumo das principais informações</p>
-        </div>
-
       <div className="stats-grid">
         {statCards.map((card, index) => {
           const Icon = card.icon;
