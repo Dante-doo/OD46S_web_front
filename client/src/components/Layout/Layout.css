@@ -62,13 +62,17 @@
 }
 
 .logo-icon {
-  font-size: 2rem;
-  color: #3498db;
+  width: 2rem;
+  height: 2rem;
+  object-fit: contain;
 }
 
 .logo-text {
-  font-size: 1.5rem;
+  font-size: 1.3rem;
+  max-width: 140px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sidebar-toggle {

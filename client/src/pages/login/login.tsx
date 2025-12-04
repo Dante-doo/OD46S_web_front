@@ -11,11 +11,15 @@ interface LoginRequest {
     password: string;
 }
 
-interface AuthResponse {
+// Estrutura achatada real retornada pelo backend no login
+interface LoginFlatResponse {
     token: string;
     email: string;
     name: string;
-    type: string;
+    type: string;      // ADMIN | DRIVER
+    userId: number;
+    driverId: number | null;
+    adminId: number | null;
 }
 
 const Login: React.FC = () => {
@@ -49,34 +53,49 @@ const Login: React.FC = () => {
                 body: JSON.stringify(loginRequest),
             });
 
+            const rawJson: LoginFlatResponse & { error?: { message?: string }, message?: string } =
+                await response.json().catch(() => ({} as any));
+
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
                 throw new Error(
-                    errorData.error?.message || 
+                    rawJson.error?.message ||
+                    rawJson.message ||
                     "Credenciais inválidas. Verifique seu CPF e senha."
                 );
             }
 
-            const authResponse: AuthResponse = await response.json();
+            // Formato único: resposta achatada (igual ao JSON retornado pelo backend)
+            const token = rawJson.token;
+            const user = {
+                id: rawJson.userId,
+                name: rawJson.name,
+                email: rawJson.email,
+                type: rawJson.type,
+            };
+
+            if (!token || !user || !user.type) {
+                throw new Error("Resposta de autenticação inválida do servidor.");
+            }
 
             // Validar que apenas ADMIN pode fazer login no frontend
-            if (authResponse.type !== "ADMIN") {
+            if (user.type !== "ADMIN") {
                 throw new Error("Acesso negado. Apenas administradores podem acessar o sistema.");
             }
 
             // Armazenar token e informações do usuário
-            localStorage.setItem("token", authResponse.token);
+            localStorage.setItem("token", token);
             localStorage.setItem("user", JSON.stringify({
-                email: authResponse.email,
-                name: authResponse.name,
-                type: authResponse.type,
+                email: user.email,
+                name: user.name,
+                type: user.type,
+                id: user.id,
             }));
 
             // Redirecionar para o dashboard
             navigate("/dashboard");
         } catch (err) {
-            const errorMessage = err instanceof Error 
-                ? err.message 
+            const errorMessage = err instanceof Error
+                ? err.message
                 : "Erro ao fazer login. Tente novamente.";
             setError(errorMessage);
         } finally {
