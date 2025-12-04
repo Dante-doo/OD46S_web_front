@@ -25,6 +25,11 @@ export const API_ENDPOINTS = {
     CREATE: `${API_BASE_URL}/api/v1/routes`,
     ADD_POINT: (id: number) => `${API_BASE_URL}/api/v1/routes/${id}/points`,
     REORDER_POINTS: (id: number) => `${API_BASE_URL}/api/v1/routes/${id}/points/reorder`,
+    MAP: {
+      IMPORT_GEOJSON: `${API_BASE_URL}/api/v1/routes/map/import-geojson`,
+      GET_GEO: `${API_BASE_URL}/api/v1/routes/map/geo`,
+      GET_ROUTE_MAP: (id: number) => `${API_BASE_URL}/api/v1/routes/${id}/map`,
+    },
   },
   ASSIGNMENTS: {
     LIST: `${API_BASE_URL}/api/v1/assignments`,

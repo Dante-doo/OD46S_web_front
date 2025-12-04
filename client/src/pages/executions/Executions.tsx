@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { FaEye, FaChartLine, FaTimes, FaMapMarkerAlt, FaClock, FaRoute } from 'react-icons/fa';
+import { FaEye, FaChartLine, FaTimes, FaMapMarkerAlt, FaClock, FaRoute, FaMap } from 'react-icons/fa';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { apiService } from '../../services/apiService';
 import { API_ENDPOINTS } from '../../config/api';
 import Layout from '../../components/Layout/Layout';
@@ -47,6 +48,11 @@ interface GPSTraceData {
 }
 
 const Executions: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState<'executions' | 'map'>(
+    location.pathname === '/reports/map' ? 'map' : 'executions'
+  );
   const [executions, setExecutions] = useState<Execution[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedExecution, setSelectedExecution] = useState<Execution | null>(null);
@@ -118,13 +124,40 @@ const Executions: React.FC = () => {
     <Layout>
       <div className="executions-page">
         <div className="page-header">
-          <h2>Relatórios e Execuções</h2>
+          <h2>Relatórios</h2>
           <div className="header-actions">
             <button className="btn btn-outline-primary">
               <FaChartLine /> Gerar Relatório
             </button>
           </div>
         </div>
+
+        {/* Tabs */}
+        <div className="reports-tabs">
+          <button
+            className={`tab-button ${activeTab === 'executions' ? 'active' : ''}`}
+            onClick={() => setActiveTab('executions')}
+          >
+            <FaChartLine /> Execuções
+          </button>
+          <button
+            className={`tab-button ${activeTab === 'map' ? 'active' : ''}`}
+            onClick={() => navigate('/reports/map')}
+          >
+            <FaMap /> Mapa de Rotas
+          </button>
+        </div>
+
+        {activeTab === 'map' && (
+          <div className="tab-content">
+            <div className="alert alert-info">
+              <FaMap /> <strong>Redirecionando para o Mapa de Rotas...</strong>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'executions' && (
+          <div className="tab-content">
 
         <div className="table-container">
           <table className="table">
@@ -180,7 +213,8 @@ const Executions: React.FC = () => {
             </tbody>
           </table>
         </div>
-      </div>
+          </div>
+        )}
 
       {/* Modal de Rastro GPS */}
       {showGpsModal && (
@@ -340,6 +374,7 @@ const Executions: React.FC = () => {
           </div>
         </div>
       )}
+      </div>
     </Layout>
   );
 };

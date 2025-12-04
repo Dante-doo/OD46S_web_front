@@ -2,16 +2,15 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import Login from "./pages/login/login";
 import Register from "./pages/register/register";
 import Adm_register from "./pages/adm_register/adm_register";
-import ListaCaminhoes from "./pages/lista_caminhoes/lista_caminhoes";
-import CadastrarCaminhao from "./pages/cadastrar_caminhao/cadastrar_caminhao.tsx";
 import Dashboard from "./pages/dashboard/Dashboard";
 import Vehicles from "./pages/vehicles/Vehicles";
 import Users from "./pages/users/Users";
 import RoutesPage from "./pages/routes/Routes";
 import Assignments from "./pages/assignments/Assignments";
 import Executions from "./pages/executions/Executions";
+import MapImport from "./pages/map-import/MapImport";
+import RouteMapView from "./pages/route-map/RouteMapView";
 import ProtectedRoute from "./components/ProtectedRoute";
-import "./App.css";
 
 function App() {
     return (
@@ -68,6 +67,22 @@ function App() {
                     element={
                         <ProtectedRoute>
                             <Executions />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/map-import"
+                    element={
+                        <ProtectedRoute>
+                            <MapImport />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/reports/map"
+                    element={
+                        <ProtectedRoute>
+                            <RouteMapView />
                         </ProtectedRoute>
                     }
                 />
