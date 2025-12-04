@@ -37,7 +37,8 @@ const Dashboard: React.FC = () => {
       const [vehiclesRes, usersRes, routesRes, executionsRes] = await Promise.all([
         apiService.get(API_ENDPOINTS.VEHICLES.LIST),
         apiService.get(API_ENDPOINTS.USERS.LIST),
-        apiService.get(API_ENDPOINTS.ROUTES.LIST),
+        // Rotas exigem pelo menos o parâmetro search; usar defaults
+        apiService.get(`${API_ENDPOINTS.ROUTES.LIST}?search=&page=1&limit=20&sort=name&order=asc`),
         apiService.get(API_ENDPOINTS.EXECUTIONS.LIST),
       ]);
 

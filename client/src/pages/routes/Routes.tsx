@@ -28,7 +28,9 @@ const RoutesPage: React.FC = () => {
   const loadRoutes = async () => {
     setLoading(true);
     try {
-      const response = await apiService.get(API_ENDPOINTS.ROUTES.LIST);
+      // Backend exige pelo menos o parâmetro search; usar defaults seguros
+      const url = `${API_ENDPOINTS.ROUTES.LIST}?search=&page=1&limit=20&sort=name&order=asc`;
+      const response = await apiService.get(url);
       console.log('Resposta completa de rotas:', response);
       
       if (response.success && response.data) {

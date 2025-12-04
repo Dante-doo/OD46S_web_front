@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { 
-  FaTachometerAlt, 
-  FaTruck, 
-  FaUsers, 
-  FaRoute, 
-  FaCalendarAlt, 
+import {
+  FaTachometerAlt,
+  FaTruck,
+  FaUsers,
+  FaRoute,
+  FaCalendarAlt,
   FaChartLine,
   FaBars,
   FaTimes,
   FaSignOutAlt,
-  FaUser
+  FaUser,
 } from 'react-icons/fa';
 import './Layout.css';
 
@@ -49,8 +49,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <aside className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
         <div className="sidebar-header">
           <div className="sidebar-logo">
-            <FaTruck className="logo-icon" />
-            {sidebarOpen && <span className="logo-text">OD46S</span>}
+            <img src="/garbage-truck.png" alt="Coleta Urbana" className="logo-icon" />
+            {sidebarOpen && <span className="logo-text">Coleta Urbana</span>}
           </div>
           <button 
             className="sidebar-toggle"
