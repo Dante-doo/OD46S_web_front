@@ -34,17 +34,20 @@ const Dashboard: React.FC = () => {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      const [vehiclesRes, usersRes, routesRes, executionsRes] = await Promise.all([
+      const [vehiclesRes, usersRes, routesRes, routesActiveRes, executionsRes] = await Promise.all([
         apiService.get(API_ENDPOINTS.VEHICLES.LIST),
         apiService.get(API_ENDPOINTS.USERS.LIST),
-        // Rotas exigem pelo menos o parâmetro search; usar defaults
-        apiService.get(`${API_ENDPOINTS.ROUTES.LIST}?search=&page=1&limit=20&sort=name&order=asc`),
+        // Buscar todas as rotas (usar limite máximo de 100 para obter o total correto)
+        apiService.get(`${API_ENDPOINTS.ROUTES.LIST}?search=&page=1&limit=100&sort=name&order=asc`),
+        // Buscar rotas ativas para contar
+        apiService.get(`${API_ENDPOINTS.ROUTES.LIST}?search=&page=1&limit=100&active=true&sort=name&order=asc`),
         apiService.get(API_ENDPOINTS.EXECUTIONS.LIST),
       ]);
 
       console.log('Resposta de veículos:', vehiclesRes);
       console.log('Resposta de usuários:', usersRes);
       console.log('Resposta de rotas:', routesRes);
+      console.log('Resposta de rotas ativas:', routesActiveRes);
       console.log('Resposta de execuções:', executionsRes);
 
       // O backend retorna uma lista diretamente para veículos
@@ -61,6 +64,14 @@ const Dashboard: React.FC = () => {
       const routes = routesRes.data?.routes || routesRes.data?.data?.routes || [];
       const executions = executionsRes.data?.executions || executionsRes.data?.data?.executions || [];
 
+      // Obter total de rotas da paginação (mais confiável que contar o array)
+      const routesPagination = routesRes.data?.pagination || routesRes.data?.data?.pagination;
+      const totalRoutes = routesPagination?.total || (Array.isArray(routes) ? routes.length : 0);
+
+      // Obter total de rotas ativas da paginação
+      const routesActivePagination = routesActiveRes.data?.pagination || routesActiveRes.data?.data?.pagination;
+      const activeRoutes = routesActivePagination?.total || 0;
+
       // Filtrar veículos ativos: AVAILABLE é o status de veículo disponível/ativo
       // Também considerar active: true se existir
       const activeVehicles = Array.isArray(vehicles) 
@@ -74,10 +85,8 @@ const Dashboard: React.FC = () => {
       console.log('Total de veículos:', vehicles.length);
       console.log('Veículos ativos:', activeVehicles);
       console.log('Status dos veículos:', vehicles.map((v: any) => ({ id: v.id, status: v.status, active: v.active })));
-
-      const activeRoutes = Array.isArray(routes)
-        ? routes.filter((r: any) => r.active === true || r.active === undefined).length
-        : 0;
+      console.log('Total de rotas (da paginação):', totalRoutes);
+      console.log('Rotas ativas (da paginação):', activeRoutes);
 
       const pendingExecutions = Array.isArray(executions)
         ? executions.filter((e: any) => e.status === 'IN_PROGRESS' || e.status === 'PENDING').length
@@ -86,10 +95,10 @@ const Dashboard: React.FC = () => {
       setStats({
         totalVehicles: Array.isArray(vehicles) ? vehicles.length : 0,
         totalUsers: Array.isArray(users) ? users.length : 0,
-        totalRoutes: Array.isArray(routes) ? routes.length : 0,
+        totalRoutes: totalRoutes,
         totalExecutions: Array.isArray(executions) ? executions.length : 0,
         activeVehicles,
-        activeRoutes,
+        activeRoutes: activeRoutes,
         pendingExecutions,
       });
     } catch (error) {
