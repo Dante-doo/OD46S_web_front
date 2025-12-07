@@ -38,7 +38,7 @@ const Users: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [formLoading, setFormLoading] = useState(false); // Novo estado para loading do form
+  const [formLoading, setFormLoading] = useState(false);
 
   const [formData, setFormData] = useState<FormDataState>({
     name: '',
@@ -76,11 +76,11 @@ const Users: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFormLoading(true); // Inicia loading do formulário
+    setFormLoading(true);
     try {
       const dataToSend = { ...formData };
 
-      dataToSend.cpf = dataToSend.cpf.replace(/\D/g, ''); // Remove tudo que não for dígito
+      dataToSend.cpf = dataToSend.cpf.replace(/\D/g, '');
       dataToSend.phone = dataToSend.phone.replace(/\D/g, '');
       dataToSend.license_number = dataToSend.license_number.replace(/\D/g, '');
 
@@ -286,7 +286,6 @@ const Users: React.FC = () => {
                   </div>
                   <form onSubmit={handleSubmit}>
                     <div className="modal-body">
-                      {/* CAMPOS EXISTENTES */}
                       <div className="form-group">
                         <label>Nome *</label>
                         <input
