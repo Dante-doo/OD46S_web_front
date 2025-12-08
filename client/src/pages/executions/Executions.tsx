@@ -80,7 +80,6 @@ const Executions: React.FC = () => {
     try {
       const response = await apiService.get(API_ENDPOINTS.EXECUTIONS.GPS(executionId));
       if (response.success && response.data) {
-        // A resposta vem como { success: true, data: { gps_track: [...], statistics: {...}, execution_id: ... } }
         const traceData: GPSTraceData = {
           execution_id: response.data.execution_id || executionId,
           gps_track: response.data.gps_track || [],
@@ -216,7 +215,6 @@ const Executions: React.FC = () => {
           </div>
         )}
 
-      {/* Modal de Rastro GPS */}
       {showGpsModal && (
         <div className="modal-overlay" onClick={closeGpsModal}>
           <div className="modal-content gps-modal" onClick={(e) => e.stopPropagation()}>
@@ -239,7 +237,6 @@ const Executions: React.FC = () => {
                 </div>
               ) : gpsTrace ? (
                 <>
-                  {/* Estatísticas */}
                   <div className="gps-statistics mb-4">
                     <div className="row">
                       <div className="col-md-3">
@@ -283,7 +280,6 @@ const Executions: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Lista de registros GPS */}
                   <div className="gps-records-container">
                     <h5 className="mb-3">Registros GPS ({gpsTrace.gps_track.length})</h5>
                     <div className="table-responsive" style={{ maxHeight: '500px', overflowY: 'auto' }}>

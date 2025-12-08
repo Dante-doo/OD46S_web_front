@@ -37,9 +37,7 @@ const Dashboard: React.FC = () => {
       const [vehiclesRes, usersRes, routesRes, routesActiveRes, executionsRes] = await Promise.all([
         apiService.get(API_ENDPOINTS.VEHICLES.LIST),
         apiService.get(API_ENDPOINTS.USERS.LIST),
-        // Buscar todas as rotas (usar limite máximo de 100 para obter o total correto)
         apiService.get(`${API_ENDPOINTS.ROUTES.LIST}?search=&page=1&limit=100&sort=name&order=asc`),
-        // Buscar rotas ativas para contar
         apiService.get(`${API_ENDPOINTS.ROUTES.LIST}?search=&page=1&limit=100&active=true&sort=name&order=asc`),
         apiService.get(API_ENDPOINTS.EXECUTIONS.LIST),
       ]);
@@ -50,7 +48,6 @@ const Dashboard: React.FC = () => {
       console.log('Resposta de rotas ativas:', routesActiveRes);
       console.log('Resposta de execuções:', executionsRes);
 
-      // O backend retorna uma lista diretamente para veículos
       let vehicles: any[] = [];
       if (Array.isArray(vehiclesRes.data)) {
         vehicles = vehiclesRes.data;
@@ -64,20 +61,16 @@ const Dashboard: React.FC = () => {
       const routes = routesRes.data?.routes || routesRes.data?.data?.routes || [];
       const executions = executionsRes.data?.executions || executionsRes.data?.data?.executions || [];
 
-      // Obter total de rotas da paginação (mais confiável que contar o array)
       const routesPagination = routesRes.data?.pagination || routesRes.data?.data?.pagination;
       const totalRoutes = routesPagination?.total || (Array.isArray(routes) ? routes.length : 0);
 
-      // Obter total de rotas ativas da paginação
       const routesActivePagination = routesActiveRes.data?.pagination || routesActiveRes.data?.data?.pagination;
       const activeRoutes = routesActivePagination?.total || 0;
 
-      // Filtrar veículos ativos: AVAILABLE é o status de veículo disponível/ativo
-      // Também considerar active: true se existir
       const activeVehicles = Array.isArray(vehicles) 
         ? vehicles.filter((v: any) => {
             const status = v.status || '';
-            const isActive = v.active !== false; // Considera ativo se não for explicitamente false
+            const isActive = v.active !== false;
             return status === 'AVAILABLE' || status === 'ACTIVE' || status === 'ATIVO' || (isActive && status !== 'INACTIVE');
           }).length 
         : 0;
