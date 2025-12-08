@@ -39,7 +39,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { path: '/routes', icon: FaRoute, label: 'Rotas' },
     { path: '/assignments', icon: FaCalendarAlt, label: 'Escalas' },
     { path: '/executions', icon: FaChartLine, label: 'Relatórios' },
-    { path: '/map-import', icon: FaRoute, label: 'Importar Mapa' },
   ];
 
   const isActive = (path: string) => location.pathname === path;

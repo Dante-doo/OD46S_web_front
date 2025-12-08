@@ -8,8 +8,8 @@ import Users from "./pages/users/Users";
 import RoutesPage from "./pages/routes/Routes";
 import Assignments from "./pages/assignments/Assignments";
 import Executions from "./pages/executions/Executions";
-import MapImport from "./pages/map-import/MapImport";
 import RouteMapView from "./pages/route-map/RouteMapView";
+import ExecutionReports from "./pages/execution-reports/ExecutionReports";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
@@ -71,10 +71,10 @@ function App() {
                     }
                 />
                 <Route
-                    path="/map-import"
+                    path="/execution-reports"
                     element={
                         <ProtectedRoute>
-                            <MapImport />
+                            <ExecutionReports />
                         </ProtectedRoute>
                     }
                 />
