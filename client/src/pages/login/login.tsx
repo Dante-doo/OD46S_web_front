@@ -25,14 +25,20 @@ interface LoginFlatResponse {
 const Login: React.FC = () => {
     const navigate = useNavigate();
 
-    const [cpf, setCpf] = useState("");
+    const [identifier, setIdentifier] = useState("");
     const [senha, setSenha] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
+    // Função para detectar se é email ou CPF
+    const isEmail = (value: string): boolean => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(value.trim());
+    };
+
     const handleLogin = async () => {
-        if (!cpf.trim() || !senha.trim()) {
-            setError("Por favor, preencha CPF e senha.");
+        if (!identifier.trim() || !senha.trim()) {
+            setError("Por favor, preencha CPF/Email e senha.");
             return;
         }
 
@@ -40,10 +46,10 @@ const Login: React.FC = () => {
         setError("");
 
         try {
-            const loginRequest: LoginRequest = {
-                cpf: cpf.trim(),
-                password: senha,
-            };
+            const trimmedIdentifier = identifier.trim();
+            const loginRequest: LoginRequest = isEmail(trimmedIdentifier)
+                ? { email: trimmedIdentifier, password: senha }
+                : { cpf: trimmedIdentifier, password: senha };
 
             const response = await fetch(API_ENDPOINTS.AUTH.LOGIN, {
                 method: "POST",
@@ -60,7 +66,7 @@ const Login: React.FC = () => {
                 throw new Error(
                     rawJson.error?.message ||
                     rawJson.message ||
-                    "Credenciais inválidas. Verifique seu CPF e senha."
+                    "Credenciais inválidas. Verifique seu CPF/Email e senha."
                 );
             }
 
@@ -135,10 +141,10 @@ const Login: React.FC = () => {
                             <input
                                 type="text"
                                 className="form-control"
-                                placeholder="CPF"
-                                value={cpf}
+                                placeholder="CPF ou Email"
+                                value={identifier}
                                 onChange={(e) => {
-                                    setCpf(e.target.value);
+                                    setIdentifier(e.target.value);
                                     setError("");
                                 }}
                                 onKeyPress={handleKeyPress}

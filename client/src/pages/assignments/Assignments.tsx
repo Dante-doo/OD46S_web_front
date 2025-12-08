@@ -4,6 +4,7 @@ import { FaPlus, FaEye, FaSave, FaTimes, FaEdit } from 'react-icons/fa';
 import { apiService } from '../../services/apiService';
 import { API_ENDPOINTS } from '../../config/api';
 import Layout from '../../components/Layout/Layout';
+import Pagination from '../../components/Pagination/Pagination';
 import './Assignments.css';
 
 interface RouteBasic {
@@ -82,25 +83,31 @@ const Assignments: React.FC = () => {
   const [drivers, setDrivers] = useState<DriverBasic[]>([]);
   const [vehicles, setVehicles] = useState<VehicleBasic[]>([]);
 
+  // Paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [itemsPerPage] = useState(20);
 
   useEffect(() => {
     loadAssignments();
     loadExternalData();
-  }, []);
+  }, [currentPage]);
 
 
   const loadAssignments = async () => {
     setLoading(true);
     try {
-      const response = await apiService.get(API_ENDPOINTS.ASSIGNMENTS.LIST);
+      const url = `${API_ENDPOINTS.ASSIGNMENTS.LIST}?page=${currentPage}&limit=${itemsPerPage}&sort=created_at&order=desc`;
+      const response = await apiService.get(url);
       if (response.success && response.data) {
+        const data = response.data.data || response.data;
         let assignmentsData: Assignment[] = [];
-        if (response.data.assignments && Array.isArray(response.data.assignments)) {
-          assignmentsData = response.data.assignments;
-        } else if (response.data.data && response.data.data.assignments && Array.isArray(response.data.data.assignments)) {
-          assignmentsData = response.data.data.assignments;
-        } else if (Array.isArray(response.data)) {
-          assignmentsData = response.data;
+        
+        if (data.assignments && Array.isArray(data.assignments)) {
+          assignmentsData = data.assignments;
+        } else if (Array.isArray(data)) {
+          assignmentsData = data;
         }
 
         const mappedAssignments = assignmentsData.map(a => ({
@@ -113,14 +120,33 @@ const Assignments: React.FC = () => {
         }));
 
         setAssignments(mappedAssignments as Assignment[]);
+
+        // Atualizar informações de paginação
+        if (data.pagination) {
+          setTotalPages(data.pagination.total_pages || data.pagination.totalPages || 1);
+          setTotalItems(data.pagination.total_items || data.pagination.totalItems || data.pagination.total || assignmentsData.length);
+        } else {
+          setTotalPages(1);
+          setTotalItems(assignmentsData.length);
+        }
       } else {
         setAssignments([]);
+        setTotalPages(1);
+        setTotalItems(0);
       }
     } catch (error) {
+      console.error('Erro ao carregar escalas:', error);
       setAssignments([]);
+      setTotalPages(1);
+      setTotalItems(0);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const loadExternalData = async () => {
@@ -260,6 +286,7 @@ const Assignments: React.FC = () => {
       if (response.success) {
         alert(successMessage);
         closeModal();
+        setCurrentPage(1); // Voltar para primeira página após criar/editar
         loadAssignments();
       } else {
         alert(response.error?.message || `Erro ao ${isEditing ? 'atualizar' : 'cadastrar'} a escala.`);
@@ -384,6 +411,15 @@ const Assignments: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Paginação */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            onPageChange={handlePageChange}
+          />
         </div>
 
         {viewingAssignment && (

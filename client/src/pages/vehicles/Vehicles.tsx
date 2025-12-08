@@ -3,6 +3,7 @@ import { FaPlus, FaEdit, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
 import { apiService } from '../../services/apiService';
 import { API_ENDPOINTS } from '../../config/api';
 import Layout from '../../components/Layout/Layout';
+import Pagination from '../../components/Pagination/Pagination';
 import './Vehicles.css';
 
 interface Vehicle {
@@ -49,39 +50,76 @@ const Vehicles: React.FC = () => {
     capacidade: 0,
   });
 
+  // Paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [itemsPerPage] = useState(20);
+
   useEffect(() => {
     loadVehicles();
-  }, []);
+  }, [currentPage]);
 
   const loadVehicles = async () => {
     setLoading(true);
     try {
-      const response = await apiService.get(API_ENDPOINTS.VEHICLES.LIST);
+      const url = `${API_ENDPOINTS.VEHICLES.LIST}?page=${currentPage}&limit=${itemsPerPage}&sort=licensePlate&order=asc`;
+      const response = await apiService.get(url);
       console.log('Resposta completa da API:', response);
 
-      if (response.success && response.data) {
+      if (response.success) {
         let vehiclesList: Vehicle[] = [];
+        let paginationData = null;
 
-        if (Array.isArray(response.data)) {
+        // Verificar se é resposta paginada ou lista simples
+        if (response.data && response.data.data) {
+          // Resposta paginada: { success: true, data: { vehicles: [], pagination: {} } }
+          const data = response.data.data;
+          if (data.vehicles && Array.isArray(data.vehicles)) {
+            vehiclesList = data.vehicles;
+          }
+          paginationData = data.pagination;
+        } else if (response.data && Array.isArray(response.data)) {
+          // Lista simples: { success: true, data: [] }
           vehiclesList = response.data;
-        } else if (response.data.vehicles && Array.isArray(response.data.vehicles)) {
-          vehiclesList = response.data.vehicles;
-        } else if (response.data.data && response.data.data.vehicles && Array.isArray(response.data.data.vehicles)) {
-          vehiclesList = response.data.data.vehicles;
+          paginationData = null;
+        } else if (response.data && response.data.vehicles) {
+          // Formato alternativo: { success: true, data: { vehicles: [] } }
+          vehiclesList = Array.isArray(response.data.vehicles) ? response.data.vehicles : [];
+          paginationData = response.data.pagination;
         }
 
         console.log('Veículos processados:', vehiclesList);
         setVehicles(vehiclesList);
+
+        // Atualizar informações de paginação
+        if (paginationData) {
+          setTotalPages(paginationData.total_pages || paginationData.totalPages || 1);
+          setTotalItems(paginationData.total || paginationData.total_items || paginationData.totalItems || vehiclesList.length);
+        } else {
+          // Se não houver paginação, assumir que todos os itens foram retornados
+          setTotalPages(1);
+          setTotalItems(vehiclesList.length);
+        }
       } else {
         console.error('Erro ao carregar veículos:', response.error);
         setVehicles([]);
+        setTotalPages(1);
+        setTotalItems(0);
       }
     } catch (error) {
       console.error('Erro ao carregar veículos:', error);
       setVehicles([]);
+      setTotalPages(1);
+      setTotalItems(0);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
 
@@ -173,6 +211,7 @@ const Vehicles: React.FC = () => {
       const response = await apiService.patch(url, {});
 
       if (response.success) {
+        setCurrentPage(1); // Voltar para primeira página após criar/editar
         loadVehicles();
       } else {
         alert(response.error?.message || 'Erro ao alterar status');
@@ -293,6 +332,15 @@ const Vehicles: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Paginação */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            onPageChange={handlePageChange}
+          />
         </div>
 
         {showModal && (

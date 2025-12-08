@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, GeoJSON, Polyline, Marker, useMap, Popup } from 'react-leaflet';
-import { FaChartLine, FaMap, FaRoute, FaCheckCircle, FaInfoCircle, FaArrowLeft, FaUser, FaRoad } from 'react-icons/fa';
+import { FaChartLine, FaMap, FaRoute, FaCheckCircle, FaInfoCircle, FaArrowLeft, FaUser, FaRoad, FaClock, FaRuler } from 'react-icons/fa';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { apiService } from '../../services/apiService';
 import { API_ENDPOINTS } from '../../config/api';
@@ -61,6 +61,9 @@ interface Execution {
   points_visited?: number;
   points_collected?: number;
   totalDistance?: number;
+  initialKm?: number;
+  finalKm?: number;
+  total_distance_km?: number;
 }
 
 interface GPSRecord {
@@ -116,6 +119,7 @@ const ExecutionReports: React.FC = () => {
   
   // Dados da execução
   const [gpsTrack, setGpsTrack] = useState<GPSRecord[]>([]);
+  const [gpsStatistics, setGpsStatistics] = useState<any>(null);
   const [routeData, setRouteData] = useState<any>(null);
   const [collectionPoints, setCollectionPoints] = useState<CollectionPoint[]>([]);
   const [routeAreas, setRouteAreas] = useState<RouteArea[]>([]);
@@ -147,6 +151,7 @@ const ExecutionReports: React.FC = () => {
     } else {
       // Resetar dados quando não há execução selecionada
       setGpsTrack([]);
+      setGpsStatistics(null);
       setRouteData(null);
       setCollectionPoints([]);
       setRouteAreas([]);
@@ -156,7 +161,7 @@ const ExecutionReports: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedExecution]);
 
-  // Carregar ruas do polígono quando houver áreas
+  // Carregar ruas da rota quando houver áreas
   useEffect(() => {
     if (routeAreas.length > 0 && !loadingData) {
       loadStreetsInPolygon();
@@ -203,7 +208,9 @@ const ExecutionReports: React.FC = () => {
       const gpsResponse = await apiService.get(API_ENDPOINTS.EXECUTIONS.GPS(executionId));
       if (gpsResponse.success && gpsResponse.data) {
         const track = gpsResponse.data.gps_track || [];
+        const statistics = gpsResponse.data.statistics || {};
         setGpsTrack(track);
+        setGpsStatistics(statistics);
       }
 
       // Carregar dados da rota
@@ -438,7 +445,7 @@ out geom;`;
           Array.isArray(element.geometry) &&
           element.geometry.length >= 2
         );
-        console.log(`Carregadas ${streets.length} ruas dentro do polígono`);
+        console.log(`Carregadas ${streets.length} ruas da rota`);
         setStreetsInPolygon(streets);
       } else {
         const errorText = await response.text();
@@ -446,7 +453,7 @@ out geom;`;
         setStreetsInPolygon([]);
       }
     } catch (error) {
-      console.error('Erro ao carregar ruas do polígono:', error);
+      console.error('Erro ao carregar ruas da rota:', error);
       setStreetsInPolygon([]);
     } finally {
       setLoadingStreets(false);
@@ -623,7 +630,7 @@ out geom;`;
             <FaArrowLeft /> Voltar para Execuções
           </button>
           <h2>
-            <FaChartLine /> Relatórios de Execução
+            <FaChartLine /> Detalhes da Execução
           </h2>
         </div>
 
@@ -668,7 +675,7 @@ out geom;`;
               <span className="visually-hidden">Carregando dados...</span>
             </div>
             <p>
-              {loadingData ? 'Carregando dados da execução...' : 'Carregando ruas do polígono...'}
+              {loadingData ? 'Carregando dados da execução...' : 'Carregando ruas da rota...'}
             </p>
           </div>
         )}
@@ -717,6 +724,98 @@ out geom;`;
                     </div>
                   </div>
                 </div>
+                <div className="info-item">
+                  <FaRuler className="info-icon" />
+                  <div>
+                    <div className="info-label">Distância Total</div>
+                    <div className="info-value">
+                      {(() => {
+                        // Tentar obter distância de diferentes fontes
+                        // 1. Das estatísticas do GPS track
+                        if (gpsStatistics?.total_distance_km) {
+                          return `${gpsStatistics.total_distance_km.toFixed(2)} km`;
+                        }
+                        // 2. Calcular a partir de initialKm e finalKm
+                        if (selectedExecution.initialKm !== undefined && selectedExecution.finalKm !== undefined) {
+                          const distance = selectedExecution.finalKm - selectedExecution.initialKm;
+                          if (distance > 0) {
+                            return `${distance.toFixed(2)} km`;
+                          }
+                        }
+                        // 3. Campo totalDistance direto
+                        if (selectedExecution.totalDistance) {
+                          return `${selectedExecution.totalDistance.toFixed(2)} km`;
+                        }
+                        // 4. Campo total_distance_km
+                        if (selectedExecution.total_distance_km) {
+                          return `${selectedExecution.total_distance_km.toFixed(2)} km`;
+                        }
+                        return 'N/A';
+                      })()}
+                    </div>
+                  </div>
+                </div>
+                <div className="info-item">
+                  <FaClock className="info-icon" />
+                  <div>
+                    <div className="info-label">Data de Início</div>
+                    <div className="info-value">
+                      {selectedExecution.startTime 
+                        ? new Date(selectedExecution.startTime).toLocaleString('pt-BR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })
+                        : 'N/A'}
+                    </div>
+                  </div>
+                </div>
+                <div className="info-item">
+                  <FaClock className="info-icon" />
+                  <div>
+                    <div className="info-label">Data de Fim</div>
+                    <div className="info-value">
+                      {selectedExecution.endTime 
+                        ? new Date(selectedExecution.endTime).toLocaleString('pt-BR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })
+                        : 'N/A'}
+                    </div>
+                  </div>
+                </div>
+                <div className="info-item">
+                  <FaClock className="info-icon" />
+                  <div>
+                    <div className="info-label">Tempo Total</div>
+                    <div className="info-value">
+                      {(() => {
+                        if (selectedExecution.startTime && selectedExecution.endTime) {
+                          const start = new Date(selectedExecution.startTime);
+                          const end = new Date(selectedExecution.endTime);
+                          const diffMs = end.getTime() - start.getTime();
+                          const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                          const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                          const diffSeconds = Math.floor((diffMs % (1000 * 60)) / 1000);
+                          
+                          if (diffHours > 0) {
+                            return `${diffHours}h ${diffMinutes}m ${diffSeconds}s`;
+                          } else if (diffMinutes > 0) {
+                            return `${diffMinutes}m ${diffSeconds}s`;
+                          } else {
+                            return `${diffSeconds}s`;
+                          }
+                        }
+                        return 'N/A';
+                      })()}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -755,12 +854,12 @@ out geom;`;
                   </div>
                   {loadingStreets ? (
                     <div className="detail-item">
-                      <FaInfoCircle /> <strong>Carregando ruas do polígono...</strong>
+                      <FaInfoCircle /> <strong>Carregando ruas da rota...</strong>
                     </div>
                   ) : streetsInPolygon.length > 0 ? (
                     <>
                       <div className="detail-item">
-                        <FaRoute /> <strong>Ruas no Polígono:</strong> {streetsInPolygon.length}
+                        <FaRoute /> <strong>Ruas da Rota:</strong> {streetsInPolygon.length}
                       </div>
                       <div className="detail-item">
                         <FaCheckCircle /> <strong>Ruas Percorridas:</strong> {traversedStreetsCount}
@@ -772,10 +871,6 @@ out geom;`;
                   </div>
                     </>
                   )}
-                  <div className="detail-item">
-                    <FaRoute /> <strong>Distância Total:</strong>{' '}
-                    {selectedExecution.totalDistance ? `${selectedExecution.totalDistance.toFixed(2)} km` : 'N/A'}
-                  </div>
                 </div>
               </div>
             </div>
