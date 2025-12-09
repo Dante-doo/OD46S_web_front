@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaPlus, FaEdit, FaTrash, FaSearch, FaSave, FaTimes } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaSearch, FaSave, FaTimes, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
 import { apiService } from '../../services/apiService';
 import { API_ENDPOINTS } from '../../config/api';
 import Layout from '../../components/Layout/Layout';
@@ -182,18 +182,29 @@ const Users: React.FC = () => {
     setShowModal(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Tem certeza que deseja excluir este usuário?')) return;
+
+  const handleToggleActive = async (user: User) => {
+    const newActiveStatus = !user.active;
+    const action = newActiveStatus ? 'ativar' : 'desativar';
+    
+    if (!window.confirm(`Tem certeza que deseja ${action} o usuário ${user.name}?`)) {
+      return;
+    }
+
     try {
-      const response = await apiService.delete(API_ENDPOINTS.USERS.DELETE(id));
+      const response = await apiService.put(
+        API_ENDPOINTS.USERS.UPDATE(user.id),
+        { active: newActiveStatus }
+      );
+      
       if (response.success) {
-        alert('Usuário excluído com sucesso!');
+        alert(`Usuário ${action === 'ativar' ? 'ativado' : 'desativado'} com sucesso!`);
         loadUsers();
       } else {
-        alert(response.error?.message || 'Erro ao excluir usuário');
+        alert(response.error?.message || `Erro ao ${action} usuário`);
       }
     } catch (error) {
-      alert('Erro ao excluir usuário');
+      alert(`Erro ao ${action} usuário`);
     }
   };
 
@@ -299,11 +310,11 @@ const Users: React.FC = () => {
                               <FaEdit />
                             </button>
                             <button
-                                className="btn btn-sm btn-outline-danger"
-                                onClick={() => handleDelete(user.id)}
-                                title="Excluir"
+                                className={`btn btn-sm ${user.active ? 'btn-outline-warning' : 'btn-outline-success'}`}
+                                onClick={() => handleToggleActive(user)}
+                                title={user.active ? 'Desativar' : 'Ativar'}
                             >
-                              <FaTrash />
+                              {user.active ? <FaTimesCircle /> : <FaCheckCircle />}
                             </button>
                           </div>
                         </td>

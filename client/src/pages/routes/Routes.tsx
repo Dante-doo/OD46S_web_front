@@ -38,14 +38,6 @@ interface RouteFormDataType {
 
 const COLLECTION_TYPES = ['RESIDENTIAL', 'COMMERCIAL', 'INDUSTRIAL'];
 const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH'];
-const PERIODICITIES = [
-  'DIÁRIA',
-  'SEMANAL',
-  'QUINZENAL',
-  'MENSAL',
-  'ANUAL',
-  'SOB DEMANDA'
-];
 const INITIAL_FORM_DATA: RouteFormDataType = {
   name: '',
   description: '',
@@ -76,7 +68,7 @@ const RoutesPage: React.FC = () => {
   const loadRoutes = async () => {
     setLoading(true);
     try {
-      const url = `${API_ENDPOINTS.ROUTES.LIST}?search=&page=1&limit=20&sort=name&order=asc`;
+      const url = `${API_ENDPOINTS.ROUTES.LIST}?search=&page=1&limit=1000&sort=name&order=asc`;
       const response = await apiService.get(url);
 
       if (response.success && response.data) {
@@ -119,13 +111,9 @@ const RoutesPage: React.FC = () => {
 
     const collectionType = route.collection_type || route.collectionType || '';
     const priority = route.priority || 'MEDIUM';
-    const periodicityValue = PERIODICITIES.includes(route.periodicity || '') ? route.periodicity! : '';
 
 
     setFormData({
-      id: route.id,
-      name: route.name || '',
-      description: route.description || '',
       collection_type: COLLECTION_TYPES.includes(collectionType.toUpperCase()) ? collectionType.toUpperCase() as any : '',
       periodicity: periodicityValue, // Usa o valor ajustado
       priority: PRIORITIES.includes(priority.toUpperCase()) ? priority.toUpperCase() as any : 'MEDIUM',
@@ -373,38 +361,8 @@ const RoutesPage: React.FC = () => {
                         />
                       </div>
                     </div>
-
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label htmlFor="periodicity">Periodicidade *</label>
-                        {/* CAMPO ALTERADO PARA SELECT/DROPDOWN */}
-                        <select className="form-control" id="periodicity" name="periodicity"
-                                value={formData.periodicity} onChange={handleChange} required disabled={formLoading}
-                        >
-                          <option value="" disabled>Selecione a frequência</option>
-                          {PERIODICITIES.map(p => (<option key={p} value={p}>{p}</option>))}
-                        </select>
-                      </div>
-
-                      <div className="form-group">
-                        <label htmlFor="active">Status</label>
-                        <select className="form-control" id="active" name="active"
-                                value={formData.active.toString()} onChange={handleChange} disabled={formLoading}
-                        >
-                          <option value="true">Ativa</option>
-                          <option value="false">Inativa</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="form-group">
-                      <label htmlFor="notes">Observações</label>
-                      <textarea className="form-control" id="notes" name="notes" rows={3}
-                                value={formData.notes} onChange={handleChange} disabled={formLoading}
-                                placeholder="Quaisquer notas relevantes para os operadores da rota."
-                      ></textarea>
-                    </div>
                   </div>
+
 
                   <div className="modal-footer">
                     <button type="button" className="btn btn-secondary" onClick={closeModal} disabled={formLoading}>

@@ -37,8 +37,8 @@ const Dashboard: React.FC = () => {
       const [vehiclesRes, usersRes, routesRes, routesActiveRes, executionsRes] = await Promise.all([
         apiService.get(API_ENDPOINTS.VEHICLES.LIST),
         apiService.get(API_ENDPOINTS.USERS.LIST),
-        apiService.get(`${API_ENDPOINTS.ROUTES.LIST}?search=&page=1&limit=100&sort=name&order=asc`),
-        apiService.get(`${API_ENDPOINTS.ROUTES.LIST}?search=&page=1&limit=100&active=true&sort=name&order=asc`),
+        apiService.get(`${API_ENDPOINTS.ROUTES.LIST}?search=`),
+        apiService.get(`${API_ENDPOINTS.ROUTES.LIST}?search=&active=true`),
         apiService.get(API_ENDPOINTS.EXECUTIONS.LIST),
       ]);
 

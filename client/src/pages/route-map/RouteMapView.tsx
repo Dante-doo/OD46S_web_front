@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, GeoJSON, useMap, Marker, Popup } from 'react-leaflet';
-import { FaMap, FaFilter, FaInfoCircle } from 'react-icons/fa';
+import { FaMap, FaFilter, FaInfoCircle, FaArrowLeft } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
 import { apiService } from '../../services/apiService';
 import { API_ENDPOINTS } from '../../config/api';
 import Layout from '../../components/Layout/Layout';
@@ -79,6 +80,7 @@ function MapBounds({ geojson }: { geojson: GeoJsonFeatureCollection | null }) {
 }
 
 const RouteMapView: React.FC = () => {
+  const navigate = useNavigate();
   const [geojson, setGeojson] = useState<GeoJsonFeatureCollection | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -99,8 +101,8 @@ const RouteMapView: React.FC = () => {
 
   const loadRoutes = async () => {
     try {
-      // Buscar todas as rotas (usar limite máximo de 100)
-      const response = await apiService.get(`${API_ENDPOINTS.ROUTES.LIST}?search=&page=1&limit=100&sort=name&order=asc`);
+      // Buscar todas as rotas
+      const response = await apiService.get(`${API_ENDPOINTS.ROUTES.LIST}?search=`);
       if (response.success && response.data) {
         const routesData = response.data.routes || response.data.data?.routes || [];
         setRoutes(Array.isArray(routesData) ? routesData : []);
@@ -285,6 +287,13 @@ const RouteMapView: React.FC = () => {
     <Layout>
       <div className="route-map-page">
         <div className="page-header">
+          <button 
+            className="btn btn-outline-secondary btn-sm"
+            onClick={() => navigate('/routes')}
+            style={{ marginRight: '15px' }}
+          >
+            <FaArrowLeft /> Voltar para Rotas
+          </button>
           <h2>
             <FaMap /> Mapa de Rotas
           </h2>

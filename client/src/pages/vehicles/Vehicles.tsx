@@ -32,7 +32,6 @@ interface FormData {
   modelo: string;
   marca: string;
   ano: number;
-  cor: string;
   capacidade: number;
 }
 
@@ -46,7 +45,6 @@ const Vehicles: React.FC = () => {
     modelo: '',
     marca: '',
     ano: new Date().getFullYear(),
-    cor: '',
     capacidade: 0,
   });
 
@@ -129,7 +127,6 @@ const Vehicles: React.FC = () => {
       modelo: '',
       marca: '',
       ano: new Date().getFullYear(),
-      cor: '',
       capacidade: 0,
     });
     setEditingVehicle(null);
@@ -157,7 +154,7 @@ const Vehicles: React.FC = () => {
         // Campos opcionais
         fuelType: 'DIESEL',
         averageConsumption: 0,
-        status: 'AVAILABLE',
+        // Status não é alterado no formulário, apenas pelos botões na tabela
         active: true,
       };
 
@@ -191,7 +188,6 @@ const Vehicles: React.FC = () => {
       modelo: vehicle.model || vehicle.modelo || '',
       marca: vehicle.brand || vehicle.marca || '',
       ano: vehicle.year || vehicle.ano || new Date().getFullYear(),
-      cor: '',
       capacidade: vehicle.capacityKg ? Number(vehicle.capacityKg) : (vehicle.capacidade || 0),
     });
     setShowModal(true);
@@ -252,7 +248,6 @@ const Vehicles: React.FC = () => {
                 <th>Modelo</th>
                 <th>Marca</th>
                 <th>Ano</th>
-                <th>Cor</th>
                 <th>Capacidade (kg)</th>
                 <th>Status</th>
                 <th>Ações</th>
@@ -261,7 +256,7 @@ const Vehicles: React.FC = () => {
               <tbody>
               {vehicles.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center text-muted">
+                    <td colSpan={7} className="text-center text-muted">
                       Nenhum caminhão cadastrado
                     </td>
                   </tr>
@@ -291,7 +286,6 @@ const Vehicles: React.FC = () => {
                           <td>{modelo}</td>
                           <td>{marca}</td>
                           <td>{ano}</td>
-                          <td>-</td>
                           <td>{capacidade}</td>
                           <td>
                             <span className={`badge ${statusClass}`}>{status}</span>
@@ -306,21 +300,41 @@ const Vehicles: React.FC = () => {
                                 <FaEdit />
                               </button>
 
-                              {(status === 'AVAILABLE' || status === 'ACTIVE' || status === 'ATIVO') ? (
+                              {/* Botão para alternar entre Disponível e Em Manutenção */}
+                              {status === 'AVAILABLE' || status === 'ACTIVE' || status === 'ATIVO' ? (
                                   <button
                                       className="btn btn-sm btn-outline-warning"
-                                      onClick={() => handleStatusChange(vehicle.id, 'INACTIVE')}
-                                      title="Desativar"
+                                      onClick={() => handleStatusChange(vehicle.id, 'MAINTENANCE')}
+                                      title="Colocar em Manutenção"
                                   >
-                                    <FaTimesCircle />
+                                    🔧
                                   </button>
-                              ) : (
+                              ) : status === 'MAINTENANCE' ? (
+                                  <button
+                                      className="btn btn-sm btn-outline-success"
+                                      onClick={() => handleStatusChange(vehicle.id, 'AVAILABLE')}
+                                      title="Disponibilizar"
+                                  >
+                                    ✓
+                                  </button>
+                              ) : null}
+
+                              {/* Botão para ativar/desativar (INACTIVE) - sempre visível */}
+                              {status === 'INACTIVE' || status === 'INATIVO' ? (
                                   <button
                                       className="btn btn-sm btn-outline-success"
                                       onClick={() => handleStatusChange(vehicle.id, 'AVAILABLE')}
                                       title="Ativar"
                                   >
                                     <FaCheckCircle />
+                                  </button>
+                              ) : (
+                                  <button
+                                      className="btn btn-sm btn-outline-danger"
+                                      onClick={() => handleStatusChange(vehicle.id, 'INACTIVE')}
+                                      title="Desativar"
+                                  >
+                                    <FaTimesCircle />
                                   </button>
                               )}
                             </div>
@@ -402,27 +416,17 @@ const Vehicles: React.FC = () => {
                         />
                       </div>
                       <div className="form-group">
-                        <label>Cor *</label>
+                        <label>Capacidade (kg) *</label>
                         <input
-                            type="text"
+                            type="number"
                             className="form-control"
-                            value={formData.cor}
-                            onChange={(e) => setFormData({ ...formData, cor: e.target.value })}
+                            value={formData.capacidade}
+                            onChange={(e) => setFormData({ ...formData, capacidade: parseFloat(e.target.value) })}
                             required
+                            min={0}
+                            step="0.01"
                         />
                       </div>
-                    </div>
-                    <div className="form-group">
-                      <label>Capacidade (kg) *</label>
-                      <input
-                          type="number"
-                          className="form-control"
-                          value={formData.capacidade}
-                          onChange={(e) => setFormData({ ...formData, capacidade: parseFloat(e.target.value) })}
-                          required
-                          min={0}
-                          step="0.01"
-                      />
                     </div>
                   </div>
                   <div className="modal-footer">

@@ -23,6 +23,7 @@ export const API_ENDPOINTS = {
     LIST: `${API_BASE_URL}/api/v1/routes`,
     GET: (id: number) => `${API_BASE_URL}/api/v1/routes/${id}`,
     CREATE: `${API_BASE_URL}/api/v1/routes`,
+    UPDATE: (id: number) => `${API_BASE_URL}/api/v1/routes/${id}`,
     ADD_POINT: (id: number) => `${API_BASE_URL}/api/v1/routes/${id}/points`,
     REORDER_POINTS: (id: number) => `${API_BASE_URL}/api/v1/routes/${id}/points/reorder`,
     MAP: {
