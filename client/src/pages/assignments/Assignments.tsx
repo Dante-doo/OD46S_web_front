@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 // Importa apenas os ícones necessários
-import { FaPlus, FaEye, FaSave, FaTimes, FaEdit } from 'react-icons/fa';
+import { FaPlus, FaEye, FaSave, FaTimes, FaEdit, FaBan } from 'react-icons/fa';
 import { apiService } from '../../services/apiService';
 import { API_ENDPOINTS } from '../../config/api';
 import Layout from '../../components/Layout/Layout';
+import Pagination from '../../components/Pagination/Pagination';
 import './Assignments.css';
 
 interface RouteBasic {
@@ -52,7 +53,6 @@ interface AssignmentFormDataType {
   route_id: number | '';
   driver_id: number | '';
   vehicle_id: number | '';
-  status: 'SCHEDULED' | 'ACTIVE' | 'COMPLETED' | 'CANCELED';
   start_date: string;
   end_date: string;
   notes: string;
@@ -62,7 +62,6 @@ const INITIAL_FORM_DATA: AssignmentFormDataType = {
   route_id: '',
   driver_id: '',
   vehicle_id: '',
-  status: 'SCHEDULED',
   start_date: '',
   end_date: '',
   notes: '',
@@ -82,56 +81,131 @@ const Assignments: React.FC = () => {
   const [drivers, setDrivers] = useState<DriverBasic[]>([]);
   const [vehicles, setVehicles] = useState<VehicleBasic[]>([]);
 
+  // Paginação de assignments
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [itemsPerPage] = useState(20);
+
+  // Estado de carregamento de rotas
+  const [routesLoading, setRoutesLoading] = useState(false);
 
   useEffect(() => {
     loadAssignments();
-    loadExternalData();
-  }, []);
-
+    // Carrega drivers e veículos, mas não rotas (rotas serão carregadas apenas quando abrir o modal)
+    loadDriversAndVehicles();
+  }, [currentPage]);
 
   const loadAssignments = async () => {
     setLoading(true);
     try {
-      const response = await apiService.get(API_ENDPOINTS.ASSIGNMENTS.LIST);
+      const url = `${API_ENDPOINTS.ASSIGNMENTS.LIST}?page=${currentPage}&limit=${itemsPerPage}&sort=createdAt&order=desc`;
+      const response = await apiService.get(url);
+      
       if (response.success && response.data) {
+        // O apiService já extrai data.data || data, então response.data já é o objeto { assignments: [...], pagination: {...} }
+        const data = response.data;
         let assignmentsData: Assignment[] = [];
-        if (response.data.assignments && Array.isArray(response.data.assignments)) {
-          assignmentsData = response.data.assignments;
-        } else if (response.data.data && response.data.data.assignments && Array.isArray(response.data.data.assignments)) {
-          assignmentsData = response.data.data.assignments;
-        } else if (Array.isArray(response.data)) {
-          assignmentsData = response.data;
+        
+        // Tenta múltiplas formas de acessar os assignments
+        if (data.assignments && Array.isArray(data.assignments)) {
+          assignmentsData = data.assignments;
+        } else if ((data as any)?.data?.assignments && Array.isArray((data as any).data.assignments)) {
+          assignmentsData = (data as any).data.assignments;
+        } else if (Array.isArray(data)) {
+          assignmentsData = data;
         }
-
+        
         const mappedAssignments = assignmentsData.map(a => ({
           ...a,
           route_id: a.route?.id || 0,
           driver_id: a.driver?.id || 0,
           vehicle_id: a.vehicle?.id || 0,
-          start_date: a.startDate ? a.startDate.split('T')[0] : '',
-          end_date: a.endDate ? a.endDate.split('T')[0] : '',
+          start_date: a.start_date || (a.startDate ? (typeof a.startDate === 'string' ? a.startDate.split('T')[0] : '') : ''),
+          end_date: a.end_date || (a.endDate ? (typeof a.endDate === 'string' ? a.endDate.split('T')[0] : '') : ''),
+          startDate: a.start_date || a.startDate,
+          endDate: a.end_date || a.endDate,
         }));
-
         setAssignments(mappedAssignments as Assignment[]);
+
+        // Atualizar informações de paginação
+        if (data.pagination) {
+          setTotalPages(data.pagination.total_pages || data.pagination.totalPages || 1);
+          setTotalItems(data.pagination.total_items || data.pagination.totalItems || data.pagination.total || assignmentsData.length);
+        } else {
+          setTotalPages(1);
+          setTotalItems(assignmentsData.length);
+        }
       } else {
         setAssignments([]);
+        setTotalPages(1);
+        setTotalItems(0);
       }
     } catch (error) {
+      console.error('Erro ao carregar escalas:', error);
       setAssignments([]);
+      setTotalPages(1);
+      setTotalItems(0);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadExternalData = async () => {
-    try {
-      const routesResponse = await apiService.get(API_ENDPOINTS.ROUTES.LIST);
-      if (routesResponse.success && routesResponse.data) {
-        const routesData = routesResponse.data.routes || routesResponse.data.data?.routes || [];
-        setRoutes(Array.isArray(routesData) ? routesData : []);
-      }
-    } catch (e) { console.error("Erro ao carregar rotas."); }
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
+  const loadRoutes = async () => {
+    setRoutesLoading(true);
+    try {
+      const url = `${API_ENDPOINTS.ROUTES.LIST}?search=&page=1&limit=1000&sort=name&order=asc`;
+      console.log('Carregando rotas da URL:', url);
+      const response = await apiService.get(url);
+      console.log('Resposta da API de rotas:', response);
+      
+      if (response.success && response.data) {
+        let routesData: RouteBasic[] = [];
+        const data = response.data.data || response.data;
+        
+        console.log('Dados recebidos:', data);
+        
+        // Tenta múltiplas formas de acessar as rotas (seguindo o padrão da página de rotas)
+        let rawRoutes: any[] = [];
+        if (data.routes && Array.isArray(data.routes)) {
+          rawRoutes = data.routes;
+        } else if (data.data?.routes && Array.isArray(data.data.routes)) {
+          rawRoutes = data.data.routes;
+        } else if (Array.isArray(data)) {
+          rawRoutes = data;
+        }
+        
+        // Mapeia os dados para o formato RouteBasic
+        routesData = rawRoutes.map((route: any) => ({
+          id: route.id,
+          name: route.name || '',
+          periodicity: route.periodicity || route.periodicity_cron || '',
+          collectionType: route.collection_type || route.collectionType || '',
+          duration: route.duration || route.estimated_time_minutes || '',
+          distance: route.distance_km || route.distance || undefined,
+        } as RouteBasic));
+        
+        console.log('Rotas processadas:', routesData);
+        console.log('Quantidade de rotas:', routesData.length);
+        setRoutes(routesData);
+      } else {
+        console.warn('Resposta da API não foi bem-sucedida:', response);
+        setRoutes([]);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar rotas:", error);
+      setRoutes([]);
+    } finally {
+      setRoutesLoading(false);
+    }
+  };
+
+  const loadDriversAndVehicles = async () => {
     try {
       const driversResponse = await apiService.get(API_ENDPOINTS.USERS.LIST + '?type=DRIVER');
       if (driversResponse.success && driversResponse.data) {
@@ -171,10 +245,13 @@ const Assignments: React.FC = () => {
   const resetForm = () => {
     setFormData(INITIAL_FORM_DATA);
     setEditingAssignment(null);
+    setRoutes([]);
   };
 
   const openCreateModal = () => {
+    console.log('Abrindo modal de nova escala');
     resetForm();
+    loadRoutes(); // Carrega todas as rotas (limit 1000) para nova escala
     setShowModal(true);
   };
 
@@ -205,20 +282,64 @@ const Assignments: React.FC = () => {
     } as AssignmentFormDataType));
   };
 
-  const handleEdit = (assignment: Assignment) => {
+  const handleEdit = async (assignment: Assignment) => {
     setEditingAssignment(assignment);
+
+    // Ao editar, mostra apenas a rota da escala sendo editada
+    if (assignment.route) {
+      setRoutes([assignment.route]);
+    } else if (assignment.route_id) {
+      // Se não tiver a rota completa, busca pelo ID
+      try {
+        const routeResponse = await apiService.get(API_ENDPOINTS.ROUTES.GET(assignment.route_id));
+        if (routeResponse.success && routeResponse.data) {
+          const routeData = routeResponse.data.route || routeResponse.data.data?.route || routeResponse.data;
+          if (routeData) {
+            setRoutes([routeData]);
+          } else {
+            // Fallback: cria um objeto básico com o ID
+            setRoutes([{ id: assignment.route_id, name: `Rota ID: ${assignment.route_id}` } as RouteBasic]);
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao carregar rota:', error);
+        // Fallback: cria um objeto básico com o ID
+        setRoutes([{ id: assignment.route_id, name: `Rota ID: ${assignment.route_id}` } as RouteBasic]);
+      }
+    } else {
+      setRoutes([]);
+    }
 
     setFormData({
       route_id: assignment.route_id,
       driver_id: assignment.driver_id,
       vehicle_id: assignment.vehicle_id,
-      status: assignment.status as AssignmentFormDataType['status'],
       start_date: assignment.start_date,
       end_date: assignment.end_date,
       notes: assignment.notes || '',
     });
 
     setShowModal(true);
+  };
+
+  const handleDeactivate = async (id: number) => {
+    if (!window.confirm('Tem certeza que deseja inativar esta escala? Esta ação não pode ser desfeita.')) {
+      return;
+    }
+
+    try {
+      const response = await apiService.patch(API_ENDPOINTS.ASSIGNMENTS.DEACTIVATE(id), {});
+      
+      if (response.success) {
+        alert('Escala inativada com sucesso!');
+        loadAssignments();
+      } else {
+        alert(response.error?.message || 'Erro ao inativar escala');
+      }
+    } catch (error) {
+      console.error('Erro ao inativar escala:', error);
+      alert('Erro ao inativar escala');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -244,10 +365,12 @@ const Assignments: React.FC = () => {
       }
 
       const dataToSend = {
-        ...formData,
         route_id: Number(formData.route_id),
         driver_id: Number(formData.driver_id),
         vehicle_id: Number(formData.vehicle_id),
+        start_date: formData.start_date,
+        end_date: formData.end_date,
+        notes: formData.notes,
       };
 
       let response;
@@ -260,6 +383,7 @@ const Assignments: React.FC = () => {
       if (response.success) {
         alert(successMessage);
         closeModal();
+        setCurrentPage(1); // Voltar para primeira página após criar/editar
         loadAssignments();
       } else {
         alert(response.error?.message || `Erro ao ${isEditing ? 'atualizar' : 'cadastrar'} a escala.`);
@@ -285,25 +409,6 @@ const Assignments: React.FC = () => {
     );
   }
 
-  const getStatusBadgeClass = (status: string) => {
-    switch (status) {
-      case 'ACTIVE': return 'bg-success';
-      case 'SCHEDULED': return 'bg-success';
-      case 'COMPLETED': return 'bg-primary';
-      case 'CANCELED': return 'bg-danger';
-      default: return 'bg-light text-dark';
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'ACTIVE': return 'ATIVA';
-      case 'SCHEDULED': return 'AGENDADA';
-      case 'COMPLETED': return 'CONCLUÍDA';
-      case 'CANCELED': return 'DESATIVADA';
-      default: return status;
-    }
-  }
 
 
   return (
@@ -323,7 +428,6 @@ const Assignments: React.FC = () => {
                 <th>Rota</th>
                 <th>Motorista</th>
                 <th>Veículo</th>
-                <th>Status</th>
                 <th>Data Início</th>
                 <th>Data Fim</th>
                 <th>Ações</th>
@@ -332,7 +436,7 @@ const Assignments: React.FC = () => {
               <tbody>
               {assignments.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center text-muted">
+                    <td colSpan={6} className="text-center text-muted">
                       Nenhuma escala cadastrada
                     </td>
                   </tr>
@@ -341,19 +445,12 @@ const Assignments: React.FC = () => {
                     const routeName = assignment.route?.name || '-';
                     const driverName = assignment.driver?.name || '-';
                     const vehiclePlate = assignment.vehicle?.licensePlate || '-';
-                    const status = assignment.status || 'UNKNOWN';
-                    const badgeClass = getStatusBadgeClass(status);
 
                     return (
                         <tr key={assignment.id}>
                           <td><strong>{routeName}</strong></td>
                           <td>{driverName}</td>
                           <td>{vehiclePlate}</td>
-                          <td>
-                      <span className={`badge ${badgeClass}`}>
-                        {getStatusText(status)}
-                      </span>
-                          </td>
                           <td>{assignment.startDate ? new Date(assignment.startDate).toLocaleDateString('pt-BR') : '-'}</td>
                           <td>{assignment.endDate ? new Date(assignment.endDate).toLocaleDateString('pt-BR') : '-'}</td>
                           <td>
@@ -375,6 +472,14 @@ const Assignments: React.FC = () => {
                                 <FaEdit />
                               </button>
 
+                              <button
+                                  className="btn btn-sm btn-outline-danger"
+                                  title="Inativar Escala"
+                                  onClick={() => handleDeactivate(assignment.id)}
+                              >
+                                <FaBan />
+                              </button>
+
                             </div>
                           </td>
                         </tr>
@@ -384,6 +489,15 @@ const Assignments: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Paginação */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            onPageChange={handlePageChange}
+          />
         </div>
 
         {viewingAssignment && (
@@ -403,10 +517,9 @@ const Assignments: React.FC = () => {
                     <div className="row">
                       <div className="col-md-6">
                         <p><strong>ID da Escala:</strong> {viewingAssignment.id}</p>
-                        <p><strong>Status:</strong> <span className={`badge ${getStatusBadgeClass(viewingAssignment.status)}`}>{getStatusText(viewingAssignment.status)}</span></p>
+                        <p><strong>Início:</strong> {new Date(viewingAssignment.startDate!).toLocaleDateString('pt-BR')}</p>
                       </div>
                       <div className="col-md-6">
-                        <p><strong>Início:</strong> {new Date(viewingAssignment.startDate!).toLocaleDateString('pt-BR')}</p>
                         <p><strong>Fim:</strong> {new Date(viewingAssignment.endDate!).toLocaleDateString('pt-BR')}</p>
                       </div>
                     </div>
@@ -488,23 +601,56 @@ const Assignments: React.FC = () => {
 
                     <div className="form-group">
                       <label htmlFor="route_id">Rota *</label>
-                      <select
-                          className="form-control"
-                          id="route_id"
-                          name="route_id"
-                          value={formData.route_id}
-                          onChange={handleFormChange}
-                          required
-                          disabled={formLoading}
-                      >
-                        <option value="">Selecione uma Rota</option>
-                        {routes.map(route => (
-                            <option key={route.id} value={route.id}>
-                              {route.name} ({route.collectionType || route.periodicity})
+                      {editingAssignment ? (
+                        // Ao editar: campo desabilitado mostrando apenas a rota da escala
+                        <select
+                            className="form-control"
+                            id="route_id"
+                            name="route_id"
+                            value={formData.route_id}
+                            disabled={true}
+                            style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
+                        >
+                          {routes.length > 0 ? (
+                            routes.map(route => (
+                              <option key={route.id} value={route.id}>
+                                {route.name} ({route.collectionType || route.periodicity})
+                              </option>
+                            ))
+                          ) : (
+                            <option value={formData.route_id}>
+                              Rota ID: {formData.route_id}
                             </option>
-                        ))}
-                      </select>
-                      {routes.length === 0 && <small className="text-muted text-danger">Nenhuma rota disponível.</small>}
+                          )}
+                        </select>
+                      ) : (
+                        // Ao criar: campo habilitado com paginação
+                        <>
+                          <select
+                              className="form-control"
+                              id="route_id"
+                              name="route_id"
+                              value={formData.route_id}
+                              onChange={handleFormChange}
+                              required
+                              disabled={formLoading || routesLoading}
+                          >
+                            <option value="">Selecione uma Rota</option>
+                            {routes.map(route => (
+                                <option key={route.id} value={route.id}>
+                                  {route.name} ({route.collectionType || route.periodicity})
+                                </option>
+                            ))}
+                          </select>
+                          {routesLoading && <small className="text-muted" style={{ display: 'block', marginTop: '0.5rem' }}>Carregando rotas...</small>}
+                          {!routesLoading && routes.length === 0 && <small className="text-muted text-danger" style={{ display: 'block', marginTop: '0.5rem' }}>Nenhuma rota disponível.</small>}
+                          {!routesLoading && routes.length > 0 && (
+                            <small className="text-muted" style={{ display: 'block', marginTop: '0.5rem' }}>
+                              {routes.length} rota{routes.length !== 1 ? 's' : ''} disponível{routes.length !== 1 ? 'eis' : ''}
+                            </small>
+                          )}
+                        </>
+                      )}
                     </div>
 
                     <div className="form-group">
@@ -576,24 +722,6 @@ const Assignments: React.FC = () => {
                             disabled={formLoading}
                         />
                       </div>
-                    </div>
-
-                    <div className="form-group">
-                      <label htmlFor="status">Status *</label>
-                      <select
-                          className="form-control"
-                          id="status"
-                          name="status"
-                          value={formData.status}
-                          onChange={handleFormChange}
-                          required
-                          disabled={formLoading}
-                      >
-                        <option value="SCHEDULED">Agendada</option>
-                        <option value="ACTIVE">Em Andamento</option>
-                        <option value="COMPLETED">Concluída</option>
-                        <option value="CANCELED">Cancelada</option>
-                      </select>
                     </div>
 
                     {/* Notas/Observações */}

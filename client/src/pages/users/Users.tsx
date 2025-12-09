@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { FaPlus, FaEdit, FaTrash, FaSearch, FaSave, FaTimes } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaSearch, FaSave, FaTimes, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
 import { apiService } from '../../services/apiService';
 import { API_ENDPOINTS } from '../../config/api';
 import Layout from '../../components/Layout/Layout';
+import Pagination from '../../components/Pagination/Pagination';
 import '../Routes/Routes.css';
 import './Users.css';
 
@@ -40,6 +41,12 @@ const Users: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [formLoading, setFormLoading] = useState(false);
 
+  // Paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [itemsPerPage] = useState(20);
+
   const [formData, setFormData] = useState<FormDataState>({
     name: '',
     email: '',
@@ -54,16 +61,45 @@ const Users: React.FC = () => {
 
   useEffect(() => {
     loadUsers();
-  }, []);
+  }, [currentPage, searchTerm]);
 
   const loadUsers = async () => {
     setLoading(true);
-    const response = await apiService.get(API_ENDPOINTS.USERS.LIST);
-    if (response.success && response.data) {
-      const usersData = response.data.users || response.data.data?.users || [];
-      setUsers(Array.isArray(usersData) ? usersData : []);
+    try {
+      const searchParam = searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : '';
+      const url = `${API_ENDPOINTS.USERS.LIST}?page=${currentPage}&limit=${itemsPerPage}&sort=name&order=asc${searchParam}`;
+      const response = await apiService.get(url);
+      if (response.success && response.data) {
+        const data = response.data.data || response.data;
+        const usersData = data.users || [];
+        setUsers(Array.isArray(usersData) ? usersData : []);
+
+        // Atualizar informações de paginação
+        if (data.pagination) {
+          setTotalPages(data.pagination.total_pages || data.pagination.totalPages || 1);
+          setTotalItems(data.pagination.total || data.pagination.total_items || data.pagination.totalItems || usersData.length);
+        } else {
+          setTotalPages(1);
+          setTotalItems(usersData.length);
+        }
+      } else {
+        setUsers([]);
+        setTotalPages(1);
+        setTotalItems(0);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar usuários:', error);
+      setUsers([]);
+      setTotalPages(1);
+      setTotalItems(0);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -119,6 +155,7 @@ const Users: React.FC = () => {
       if (response?.success) {
         setShowModal(false);
         resetForm();
+        setCurrentPage(1); // Voltar para primeira página após criar/editar
         loadUsers();
       }
 
@@ -145,18 +182,29 @@ const Users: React.FC = () => {
     setShowModal(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Tem certeza que deseja excluir este usuário?')) return;
+
+  const handleToggleActive = async (user: User) => {
+    const newActiveStatus = !user.active;
+    const action = newActiveStatus ? 'ativar' : 'desativar';
+    
+    if (!window.confirm(`Tem certeza que deseja ${action} o usuário ${user.name}?`)) {
+      return;
+    }
+
     try {
-      const response = await apiService.delete(API_ENDPOINTS.USERS.DELETE(id));
+      const response = await apiService.put(
+        API_ENDPOINTS.USERS.UPDATE(user.id),
+        { active: newActiveStatus }
+      );
+      
       if (response.success) {
-        alert('Usuário excluído com sucesso!');
+        alert(`Usuário ${action === 'ativar' ? 'ativado' : 'desativado'} com sucesso!`);
         loadUsers();
       } else {
-        alert(response.error?.message || 'Erro ao excluir usuário');
+        alert(response.error?.message || `Erro ao ${action} usuário`);
       }
     } catch (error) {
-      alert('Erro ao excluir usuário');
+      alert(`Erro ao ${action} usuário`);
     }
   };
 
@@ -176,11 +224,8 @@ const Users: React.FC = () => {
     setEditingUser(null);
   };
 
-  const filteredUsers = users.filter(user =>
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.cpf.includes(searchTerm)
-  );
+  // Busca agora é feita no backend, então não precisa filtrar localmente
+  const filteredUsers = users;
 
   if (loading) {
     return (
@@ -212,7 +257,10 @@ const Users: React.FC = () => {
                   className="form-control"
                   placeholder="Buscar por nome, email ou CPF..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1); // Resetar para primeira página ao buscar
+                  }}
               />
             </div>
           </div>
@@ -262,11 +310,11 @@ const Users: React.FC = () => {
                               <FaEdit />
                             </button>
                             <button
-                                className="btn btn-sm btn-outline-danger"
-                                onClick={() => handleDelete(user.id)}
-                                title="Excluir"
+                                className={`btn btn-sm ${user.active ? 'btn-outline-warning' : 'btn-outline-success'}`}
+                                onClick={() => handleToggleActive(user)}
+                                title={user.active ? 'Desativar' : 'Ativar'}
                             >
-                              <FaTrash />
+                              {user.active ? <FaTimesCircle /> : <FaCheckCircle />}
                             </button>
                           </div>
                         </td>
@@ -276,6 +324,15 @@ const Users: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Paginação */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            onPageChange={handlePageChange}
+          />
 
           {showModal && (
               <div className="modal-overlay" onClick={() => { setShowModal(false); resetForm(); }}>

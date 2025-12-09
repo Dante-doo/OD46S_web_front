@@ -3,6 +3,7 @@ import { FaPlus, FaEdit, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
 import { apiService } from '../../services/apiService';
 import { API_ENDPOINTS } from '../../config/api';
 import Layout from '../../components/Layout/Layout';
+import Pagination from '../../components/Pagination/Pagination';
 import './Vehicles.css';
 
 interface Vehicle {
@@ -31,7 +32,6 @@ interface FormData {
   modelo: string;
   marca: string;
   ano: number;
-  cor: string;
   capacidade: number;
 }
 
@@ -45,43 +45,79 @@ const Vehicles: React.FC = () => {
     modelo: '',
     marca: '',
     ano: new Date().getFullYear(),
-    cor: '',
     capacidade: 0,
   });
 
+  // Paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [itemsPerPage] = useState(20);
+
   useEffect(() => {
     loadVehicles();
-  }, []);
+  }, [currentPage]);
 
   const loadVehicles = async () => {
     setLoading(true);
     try {
-      const response = await apiService.get(API_ENDPOINTS.VEHICLES.LIST);
+      const url = `${API_ENDPOINTS.VEHICLES.LIST}?page=${currentPage}&limit=${itemsPerPage}&sort=licensePlate&order=asc`;
+      const response = await apiService.get(url);
       console.log('Resposta completa da API:', response);
 
-      if (response.success && response.data) {
+      if (response.success) {
         let vehiclesList: Vehicle[] = [];
+        let paginationData = null;
 
-        if (Array.isArray(response.data)) {
+        // Verificar se é resposta paginada ou lista simples
+        if (response.data && response.data.data) {
+          // Resposta paginada: { success: true, data: { vehicles: [], pagination: {} } }
+          const data = response.data.data;
+          if (data.vehicles && Array.isArray(data.vehicles)) {
+            vehiclesList = data.vehicles;
+          }
+          paginationData = data.pagination;
+        } else if (response.data && Array.isArray(response.data)) {
+          // Lista simples: { success: true, data: [] }
           vehiclesList = response.data;
-        } else if (response.data.vehicles && Array.isArray(response.data.vehicles)) {
-          vehiclesList = response.data.vehicles;
-        } else if (response.data.data && response.data.data.vehicles && Array.isArray(response.data.data.vehicles)) {
-          vehiclesList = response.data.data.vehicles;
+          paginationData = null;
+        } else if (response.data && response.data.vehicles) {
+          // Formato alternativo: { success: true, data: { vehicles: [] } }
+          vehiclesList = Array.isArray(response.data.vehicles) ? response.data.vehicles : [];
+          paginationData = response.data.pagination;
         }
 
         console.log('Veículos processados:', vehiclesList);
         setVehicles(vehiclesList);
+
+        // Atualizar informações de paginação
+        if (paginationData) {
+          setTotalPages(paginationData.total_pages || paginationData.totalPages || 1);
+          setTotalItems(paginationData.total || paginationData.total_items || paginationData.totalItems || vehiclesList.length);
+        } else {
+          // Se não houver paginação, assumir que todos os itens foram retornados
+          setTotalPages(1);
+          setTotalItems(vehiclesList.length);
+        }
       } else {
         console.error('Erro ao carregar veículos:', response.error);
         setVehicles([]);
+        setTotalPages(1);
+        setTotalItems(0);
       }
     } catch (error) {
       console.error('Erro ao carregar veículos:', error);
       setVehicles([]);
+      setTotalPages(1);
+      setTotalItems(0);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
 
@@ -91,7 +127,6 @@ const Vehicles: React.FC = () => {
       modelo: '',
       marca: '',
       ano: new Date().getFullYear(),
-      cor: '',
       capacidade: 0,
     });
     setEditingVehicle(null);
@@ -119,7 +154,7 @@ const Vehicles: React.FC = () => {
         // Campos opcionais
         fuelType: 'DIESEL',
         averageConsumption: 0,
-        status: 'AVAILABLE',
+        // Status não é alterado no formulário, apenas pelos botões na tabela
         active: true,
       };
 
@@ -153,7 +188,6 @@ const Vehicles: React.FC = () => {
       modelo: vehicle.model || vehicle.modelo || '',
       marca: vehicle.brand || vehicle.marca || '',
       ano: vehicle.year || vehicle.ano || new Date().getFullYear(),
-      cor: '',
       capacidade: vehicle.capacityKg ? Number(vehicle.capacityKg) : (vehicle.capacidade || 0),
     });
     setShowModal(true);
@@ -173,6 +207,7 @@ const Vehicles: React.FC = () => {
       const response = await apiService.patch(url, {});
 
       if (response.success) {
+        setCurrentPage(1); // Voltar para primeira página após criar/editar
         loadVehicles();
       } else {
         alert(response.error?.message || 'Erro ao alterar status');
@@ -213,7 +248,6 @@ const Vehicles: React.FC = () => {
                 <th>Modelo</th>
                 <th>Marca</th>
                 <th>Ano</th>
-                <th>Cor</th>
                 <th>Capacidade (kg)</th>
                 <th>Status</th>
                 <th>Ações</th>
@@ -222,7 +256,7 @@ const Vehicles: React.FC = () => {
               <tbody>
               {vehicles.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center text-muted">
+                    <td colSpan={7} className="text-center text-muted">
                       Nenhum caminhão cadastrado
                     </td>
                   </tr>
@@ -252,7 +286,6 @@ const Vehicles: React.FC = () => {
                           <td>{modelo}</td>
                           <td>{marca}</td>
                           <td>{ano}</td>
-                          <td>-</td>
                           <td>{capacidade}</td>
                           <td>
                             <span className={`badge ${statusClass}`}>{status}</span>
@@ -267,21 +300,41 @@ const Vehicles: React.FC = () => {
                                 <FaEdit />
                               </button>
 
-                              {(status === 'AVAILABLE' || status === 'ACTIVE' || status === 'ATIVO') ? (
+                              {/* Botão para alternar entre Disponível e Em Manutenção */}
+                              {status === 'AVAILABLE' || status === 'ACTIVE' || status === 'ATIVO' ? (
                                   <button
                                       className="btn btn-sm btn-outline-warning"
-                                      onClick={() => handleStatusChange(vehicle.id, 'INACTIVE')}
-                                      title="Desativar"
+                                      onClick={() => handleStatusChange(vehicle.id, 'MAINTENANCE')}
+                                      title="Colocar em Manutenção"
                                   >
-                                    <FaTimesCircle />
+                                    🔧
                                   </button>
-                              ) : (
+                              ) : status === 'MAINTENANCE' ? (
+                                  <button
+                                      className="btn btn-sm btn-outline-success"
+                                      onClick={() => handleStatusChange(vehicle.id, 'AVAILABLE')}
+                                      title="Disponibilizar"
+                                  >
+                                    ✓
+                                  </button>
+                              ) : null}
+
+                              {/* Botão para ativar/desativar (INACTIVE) - sempre visível */}
+                              {status === 'INACTIVE' || status === 'INATIVO' ? (
                                   <button
                                       className="btn btn-sm btn-outline-success"
                                       onClick={() => handleStatusChange(vehicle.id, 'AVAILABLE')}
                                       title="Ativar"
                                   >
                                     <FaCheckCircle />
+                                  </button>
+                              ) : (
+                                  <button
+                                      className="btn btn-sm btn-outline-danger"
+                                      onClick={() => handleStatusChange(vehicle.id, 'INACTIVE')}
+                                      title="Desativar"
+                                  >
+                                    <FaTimesCircle />
                                   </button>
                               )}
                             </div>
@@ -293,6 +346,15 @@ const Vehicles: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Paginação */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            onPageChange={handlePageChange}
+          />
         </div>
 
         {showModal && (
@@ -354,27 +416,17 @@ const Vehicles: React.FC = () => {
                         />
                       </div>
                       <div className="form-group">
-                        <label>Cor *</label>
+                        <label>Capacidade (kg) *</label>
                         <input
-                            type="text"
+                            type="number"
                             className="form-control"
-                            value={formData.cor}
-                            onChange={(e) => setFormData({ ...formData, cor: e.target.value })}
+                            value={formData.capacidade}
+                            onChange={(e) => setFormData({ ...formData, capacidade: parseFloat(e.target.value) })}
                             required
+                            min={0}
+                            step="0.01"
                         />
                       </div>
-                    </div>
-                    <div className="form-group">
-                      <label>Capacidade (kg) *</label>
-                      <input
-                          type="number"
-                          className="form-control"
-                          value={formData.capacidade}
-                          onChange={(e) => setFormData({ ...formData, capacidade: parseFloat(e.target.value) })}
-                          required
-                          min={0}
-                          step="0.01"
-                      />
                     </div>
                   </div>
                   <div className="modal-footer">

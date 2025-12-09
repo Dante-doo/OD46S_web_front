@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, GeoJSON, useMap, Marker, Popup } from 'react-leaflet';
-import { FaMap, FaFilter, FaInfoCircle } from 'react-icons/fa';
+import { FaMap, FaFilter, FaInfoCircle, FaArrowLeft } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
 import { apiService } from '../../services/apiService';
 import { API_ENDPOINTS } from '../../config/api';
 import Layout from '../../components/Layout/Layout';
@@ -79,11 +80,12 @@ function MapBounds({ geojson }: { geojson: GeoJsonFeatureCollection | null }) {
 }
 
 const RouteMapView: React.FC = () => {
+  const navigate = useNavigate();
   const [geojson, setGeojson] = useState<GeoJsonFeatureCollection | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedWasteType, setSelectedWasteType] = useState<string>('');
-  const [selectedRouteId, setSelectedRouteId] = useState<number | null>(null);
+  const [selectedWasteTypes, setSelectedWasteTypes] = useState<string[]>([]);
+  const [selectedRouteIds, setSelectedRouteIds] = useState<number[]>([]);
   const [showActiveOnly, setShowActiveOnly] = useState<boolean>(true);
   const [routes, setRoutes] = useState<any[]>([]);
   const [selectedFeature, setSelectedFeature] = useState<GeoJsonFeature | null>(null);
@@ -95,12 +97,12 @@ const RouteMapView: React.FC = () => {
 
   useEffect(() => {
     loadMapData();
-  }, [selectedWasteType, selectedRouteId, showActiveOnly]);
+  }, [selectedWasteTypes, selectedRouteIds, showActiveOnly]);
 
   const loadRoutes = async () => {
     try {
-      // Buscar todas as rotas (usar limite máximo de 100)
-      const response = await apiService.get(`${API_ENDPOINTS.ROUTES.LIST}?search=&page=1&limit=100&sort=name&order=asc`);
+      // Buscar todas as rotas
+      const response = await apiService.get(`${API_ENDPOINTS.ROUTES.LIST}?search=`);
       if (response.success && response.data) {
         const routesData = response.data.routes || response.data.data?.routes || [];
         setRoutes(Array.isArray(routesData) ? routesData : []);
@@ -115,39 +117,84 @@ const RouteMapView: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
+      // Sempre buscar todos os dados e filtrar no frontend para garantir consistência
       const params = new URLSearchParams();
-      if (selectedWasteType) params.append('wasteType', selectedWasteType);
-      if (selectedRouteId) params.append('routeId', selectedRouteId.toString());
-      // Sempre enviar o parâmetro active para evitar o default do backend
       params.append('active', showActiveOnly ? 'true' : 'false');
-
-      const url = `${API_ENDPOINTS.ROUTES.MAP.GET_GEO}${params.toString() ? '?' + params.toString() : ''}`;
-      console.log('Carregando mapa com URL:', url);
+      const url = `${API_ENDPOINTS.ROUTES.MAP.GET_GEO}?${params.toString()}`;
+      
+      console.log('Carregando dados do mapa:', url);
+      console.log('Filtros selecionados - Tipos:', selectedWasteTypes, 'Rotas:', selectedRouteIds);
+      
       const response = await apiService.get(url);
-      console.log('Resposta do mapa:', response);
-
-      if (response.success && response.data) {
-        const geojsonData = response.data.geojson || response.data.data?.geojson;
-        if (geojsonData) {
-          console.log('GeoJSON carregado:', geojsonData.features?.length || 0, 'features');
-          // Verifica se as 5 áreas estão presentes
-          const targetNames = ['Santa Terezinha', 'Morumbi', 'Vila Isabel', 'Pinheiros', 'Cadorin'];
-          const foundNames = geojsonData.features
-            ?.map((f: any) => f.properties?.externalName || f.properties?.external_name)
-            .filter((n: string) => targetNames.includes(n)) || [];
-          console.log('Áreas encontradas:', foundNames);
-          if (foundNames.length < targetNames.length) {
-            console.warn('Algumas áreas não foram encontradas:', 
-              targetNames.filter(n => !foundNames.includes(n)));
-          }
-          setGeojson(geojsonData);
-        } else {
-          setError('Formato de dados inválido');
-        }
-      } else {
-        setError(response.error?.message || 'Erro ao carregar dados do mapa');
+      
+      if (!response.success || !response.data) {
+        throw new Error(response.error?.message || 'Erro ao carregar dados do mapa');
       }
+
+      const geojsonData = response.data.geojson || response.data.data?.geojson;
+      
+      if (!geojsonData || !geojsonData.features) {
+        setError('Formato de dados inválido');
+        return;
+      }
+
+      console.log('Total de features recebidas:', geojsonData.features.length);
+      
+      // Log de exemplo das propriedades para debug
+      if (geojsonData.features.length > 0) {
+        console.log('Exemplo de propriedades da primeira feature:', geojsonData.features[0].properties);
+        console.log('Chaves disponíveis nas propriedades:', Object.keys(geojsonData.features[0].properties));
+      }
+
+      // Filtrar no frontend
+      let filteredFeatures = [...geojsonData.features];
+
+      // Aplicar filtros apenas se houver seleções
+      const hasWasteTypeFilter = selectedWasteTypes.length > 0;
+      const hasRouteFilter = selectedRouteIds.length > 0;
+
+      // Filtrar por tipos de resíduo
+      if (hasWasteTypeFilter) {
+        const beforeFilter = filteredFeatures.length;
+        filteredFeatures = filteredFeatures.filter((feature: GeoJsonFeature) => {
+          const props = feature.properties;
+          const wasteType = props.wasteType || props.waste_type || '';
+          const matches = selectedWasteTypes.includes(wasteType);
+          return matches;
+        });
+        console.log(`Filtro por tipos de resíduo: ${beforeFilter} -> ${filteredFeatures.length} features`);
+      }
+
+      // Filtrar por rotas
+      if (hasRouteFilter) {
+        const beforeFilter = filteredFeatures.length;
+        filteredFeatures = filteredFeatures.filter((feature: GeoJsonFeature) => {
+          const props = feature.properties;
+          const routeId = props.routeId || props.route_id;
+          if (!routeId) return false;
+          const routeIdNum = typeof routeId === 'number' ? routeId : Number(routeId);
+          return selectedRouteIds.includes(routeIdNum);
+        });
+        console.log(`Filtro por rotas: ${beforeFilter} -> ${filteredFeatures.length} features`);
+      }
+
+      // Se não há filtros selecionados, mostrar todas as features (já está correto)
+      if (!hasWasteTypeFilter && !hasRouteFilter) {
+        console.log('Nenhum filtro selecionado, mostrando todas as features');
+      }
+
+      // Criar novo GeoJSON com features filtradas
+      const filteredGeoJson: GeoJsonFeatureCollection = {
+        ...geojsonData,
+        features: filteredFeatures
+      };
+
+      console.log('GeoJSON final filtrado:', filteredFeatures.length, 'features');
+      console.log('Primeira feature (exemplo):', filteredFeatures[0]?.properties);
+      
+      setGeojson(filteredGeoJson);
     } catch (error) {
+      console.error('Erro ao carregar mapa:', error);
       setError(error instanceof Error ? error.message : 'Erro desconhecido');
     } finally {
       setLoading(false);
@@ -204,10 +251,49 @@ const RouteMapView: React.FC = () => {
 
   const wasteTypes = ['RECYCLABLE', 'RESIDENTIAL', 'COMMERCIAL', 'HOSPITAL', 'SELECTIVE'];
 
+  const handleWasteTypeToggle = (wasteType: string) => {
+    setSelectedWasteTypes(prev => 
+      prev.includes(wasteType) 
+        ? prev.filter(t => t !== wasteType)
+        : [...prev, wasteType]
+    );
+  };
+
+  const handleRouteToggle = (routeId: number) => {
+    setSelectedRouteIds(prev => 
+      prev.includes(routeId) 
+        ? prev.filter(id => id !== routeId)
+        : [...prev, routeId]
+    );
+  };
+
+  const handleSelectAllWasteTypes = () => {
+    if (selectedWasteTypes.length === wasteTypes.length) {
+      setSelectedWasteTypes([]);
+    } else {
+      setSelectedWasteTypes([...wasteTypes]);
+    }
+  };
+
+  const handleSelectAllRoutes = () => {
+    if (selectedRouteIds.length === routes.length) {
+      setSelectedRouteIds([]);
+    } else {
+      setSelectedRouteIds(routes.map(r => r.id));
+    }
+  };
+
   return (
     <Layout>
       <div className="route-map-page">
         <div className="page-header">
+          <button 
+            className="btn btn-outline-secondary btn-sm"
+            onClick={() => navigate('/routes')}
+            style={{ marginRight: '15px' }}
+          >
+            <FaArrowLeft /> Voltar para Rotas
+          </button>
           <h2>
             <FaMap /> Mapa de Rotas
           </h2>
@@ -224,36 +310,52 @@ const RouteMapView: React.FC = () => {
 
         {/* Filtros */}
         <div className="map-filters">
-          <div className="filter-group">
+          <div className="filter-group filter-group-checkboxes">
             <label>Tipo de Resíduo:</label>
-            <select
-              className="form-select"
-              value={selectedWasteType}
-              onChange={(e) => setSelectedWasteType(e.target.value)}
-            >
-              <option value="">Todos</option>
+            <div className="checkbox-group">
+              <label className="checkbox-select-all">
+                <input
+                  type="checkbox"
+                  checked={selectedWasteTypes.length === wasteTypes.length && wasteTypes.length > 0}
+                  onChange={handleSelectAllWasteTypes}
+                />
+                <span>Selecionar Todos</span>
+              </label>
               {wasteTypes.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
+                <label key={type} className="checkbox-item">
+                  <input
+                    type="checkbox"
+                    checked={selectedWasteTypes.includes(type)}
+                    onChange={() => handleWasteTypeToggle(type)}
+                  />
+                  <span>{type}</span>
+                </label>
               ))}
-            </select>
+            </div>
           </div>
 
-          <div className="filter-group">
+          <div className="filter-group filter-group-checkboxes">
             <label>Rota Específica:</label>
-            <select
-              className="form-select"
-              value={selectedRouteId || ''}
-              onChange={(e) => setSelectedRouteId(e.target.value ? Number(e.target.value) : null)}
-            >
-              <option value="">Todas as rotas</option>
+            <div className="checkbox-group">
+              <label className="checkbox-select-all">
+                <input
+                  type="checkbox"
+                  checked={selectedRouteIds.length === routes.length && routes.length > 0}
+                  onChange={handleSelectAllRoutes}
+                />
+                <span>Selecionar Todas</span>
+              </label>
               {routes.map((route) => (
-                <option key={route.id} value={route.id}>
-                  {route.name}
-                </option>
+                <label key={route.id} className="checkbox-item">
+                  <input
+                    type="checkbox"
+                    checked={selectedRouteIds.includes(route.id)}
+                    onChange={() => handleRouteToggle(route.id)}
+                  />
+                  <span>{route.name}</span>
+                </label>
               ))}
-            </select>
+            </div>
           </div>
 
           <div className="filter-group">
@@ -268,6 +370,25 @@ const RouteMapView: React.FC = () => {
             </label>
           </div>
         </div>
+
+        {/* Estatísticas */}
+        {geojson && (
+          <div className="map-stats">
+            <div className="stat-item">
+              <strong>{geojson.features.length}</strong> áreas carregadas
+            </div>
+            <div className="stat-item">
+              <strong>
+                {geojson.features.filter(f => f.properties.active).length}
+              </strong> áreas ativas
+            </div>
+            <div className="stat-item">
+              <strong>
+                {new Set(geojson.features.map(f => f.properties.wasteType || f.properties.waste_type)).size}
+              </strong> tipos de resíduo
+            </div>
+          </div>
+        )}
 
         {/* Mapa */}
         <div className="map-container">
@@ -361,25 +482,6 @@ const RouteMapView: React.FC = () => {
                   }}
                 />
               </p>
-            </div>
-          </div>
-        )}
-
-        {/* Estatísticas */}
-        {geojson && (
-          <div className="map-stats">
-            <div className="stat-item">
-              <strong>{geojson.features.length}</strong> áreas carregadas
-            </div>
-            <div className="stat-item">
-              <strong>
-                {geojson.features.filter(f => f.properties.active).length}
-              </strong> áreas ativas
-            </div>
-            <div className="stat-item">
-              <strong>
-                {new Set(geojson.features.map(f => f.properties.wasteType || f.properties.waste_type)).size}
-              </strong> tipos de resíduo
             </div>
           </div>
         )}

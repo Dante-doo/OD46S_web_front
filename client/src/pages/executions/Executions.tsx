@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { FaEye, FaChartLine, FaTimes, FaMapMarkerAlt, FaClock, FaRoute, FaMap } from 'react-icons/fa';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { apiService } from '../../services/apiService';
 import { API_ENDPOINTS } from '../../config/api';
 import Layout from '../../components/Layout/Layout';
@@ -19,21 +21,31 @@ interface Execution {
 
 interface GPSRecord {
   id: number;
-  execution_id: number;
-  gps_timestamp: string;
-  latitude: number;
-  longitude: number;
-  speed_kmh?: number;
-  heading_degrees?: number;
-  accuracy_meters?: number;
-  event_type: string;
-  is_automatic: boolean;
-  is_offline: boolean;
+  executionId?: number;
+  execution_id?: number; // Fallback
+  gpsTimestamp?: string; // Backend retorna em camelCase
+  gps_timestamp?: string; // Fallback
+  latitude: number | string;
+  longitude: number | string;
+  speedKmh?: number | string;
+  speed_kmh?: number | string; // Fallback
+  headingDegrees?: number;
+  heading_degrees?: number; // Fallback
+  accuracyMeters?: number;
+  accuracy_meters?: number; // Fallback
+  eventType?: string; // Backend retorna em camelCase
+  event_type?: string; // Fallback
+  isAutomatic?: boolean;
+  is_automatic?: boolean; // Fallback
+  isOffline?: boolean;
+  is_offline?: boolean; // Fallback
   description?: string;
-  point_id?: number;
-  collected_weight_kg?: number;
-  point_condition?: string;
-  photo_url?: string;
+  pointId?: number;
+  point_id?: number; // Fallback
+  pointCondition?: string;
+  point_condition?: string; // Fallback
+  photoUrl?: string;
+  photo_url?: string; // Fallback
 }
 
 interface GPSTraceData {
@@ -80,9 +92,17 @@ const Executions: React.FC = () => {
     try {
       const response = await apiService.get(API_ENDPOINTS.EXECUTIONS.GPS(executionId));
       if (response.success && response.data) {
+        // A resposta vem como { success: true, data: { gps_track: [...], statistics: {...}, execution_id: ... } }
+        const gpsTrack = response.data.gps_track || [];
+        
+        // Log para debug (apenas em desenvolvimento)
+        if (gpsTrack.length > 0) {
+          console.log('Primeiro registro GPS:', gpsTrack[0]);
+        }
+        
         const traceData: GPSTraceData = {
           execution_id: response.data.execution_id || executionId,
-          gps_track: response.data.gps_track || [],
+          gps_track: gpsTrack,
           statistics: response.data.statistics || { total_points: 0 }
         };
         setGpsTrace(traceData);
@@ -163,12 +183,11 @@ const Executions: React.FC = () => {
             <thead>
               <tr>
                 <th>ID</th>
+                <th>Rota</th>
                 <th>Motorista</th>
                 <th>Status</th>
                 <th>Início</th>
                 <th>Fim</th>
-                <th>Distância (km)</th>
-                <th>Pontos</th>
                 <th>Ações</th>
               </tr>
             </thead>
@@ -183,7 +202,8 @@ const Executions: React.FC = () => {
                 executions.map((execution) => (
                   <tr key={execution.id}>
                     <td><strong>#{execution.id}</strong></td>
-                    <td>{execution.driverName || '-'}</td>
+                    <td>{execution.assignment?.route?.name || execution.route?.name || '-'}</td>
+                    <td>{execution.assignment?.driver?.name || execution.driverName || '-'}</td>
                     <td>
                       <span className={`badge ${
                         execution.status === 'COMPLETED' ? 'bg-success' : 
@@ -195,16 +215,23 @@ const Executions: React.FC = () => {
                     </td>
                     <td>{execution.startTime ? new Date(execution.startTime).toLocaleString('pt-BR') : '-'}</td>
                     <td>{execution.endTime ? new Date(execution.endTime).toLocaleString('pt-BR') : '-'}</td>
-                    <td>{execution.totalDistance ? execution.totalDistance.toFixed(2) : '-'}</td>
-                    <td>{execution.totalPoints || 0}</td>
                     <td>
-                      <button 
-                        className="btn btn-sm btn-outline-primary" 
-                        title="Ver rastro GPS"
-                        onClick={() => handleViewDetails(execution)}
-                      >
-                        <FaEye />
-                      </button>
+                      <div className="action-buttons-group">
+                        <button 
+                          className="btn btn-sm btn-outline-primary" 
+                          title="Ver rastro GPS"
+                          onClick={() => handleViewDetails(execution)}
+                        >
+                          <FaEye />
+                        </button>
+                        <Link
+                          to={`/execution-reports?executionId=${execution.id}`}
+                          className="btn btn-sm btn-outline-success"
+                          title="Ver relatório completo"
+                        >
+                          <FaChartLine />
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -215,7 +242,8 @@ const Executions: React.FC = () => {
           </div>
         )}
 
-      {showGpsModal && (
+      {/* Modal de Rastro GPS - Renderizado via Portal para evitar corte */}
+      {showGpsModal && createPortal(
         <div className="modal-overlay" onClick={closeGpsModal}>
           <div className="modal-content gps-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
@@ -290,65 +318,138 @@ const Executions: React.FC = () => {
                             <th>Lat/Lng</th>
                             <th>Evento</th>
                             <th>Velocidade</th>
-                            <th>Ponto</th>
-                            <th>Peso (kg)</th>
                             <th>Descrição</th>
                           </tr>
                         </thead>
                         <tbody>
                           {gpsTrace.gps_track.length === 0 ? (
                             <tr>
-                              <td colSpan={7} className="text-center text-muted">
+                              <td colSpan={5} className="text-center text-muted">
                                 Nenhum registro GPS encontrado
                               </td>
                             </tr>
                           ) : (
-                            gpsTrace.gps_track.map((record) => (
-                              <tr key={record.id}>
-                                <td>
-                                  {new Date(record.gps_timestamp).toLocaleString('pt-BR')}
-                                  {record.is_offline && (
-                                    <span className="badge bg-secondary ms-1" title="Sincronizado offline">
-                                      Offline
-                                    </span>
-                                  )}
-                                </td>
-                                <td>
-                                  <small>
-                                    {record.latitude.toFixed(6)}, {record.longitude.toFixed(6)}
-                                  </small>
-                                </td>
-                                <td>
-                                  <span className={`badge ${
-                                    record.event_type === 'POINT_COLLECTED' ? 'bg-success' :
-                                    record.event_type === 'PROBLEM' ? 'bg-danger' :
-                                    record.event_type === 'START' ? 'bg-primary' :
-                                    record.event_type === 'END' ? 'bg-info' :
-                                    'bg-secondary'
-                                  }`}>
-                                    {record.event_type}
-                                  </span>
-                                </td>
-                                <td>
-                                  {record.speed_kmh ? `${record.speed_kmh.toFixed(1)} km/h` : '-'}
-                                </td>
-                                <td>
-                                  {record.point_id ? `#${record.point_id}` : '-'}
-                                </td>
-                                <td>
-                                  {record.collected_weight_kg ? `${record.collected_weight_kg.toFixed(1)}` : '-'}
-                                </td>
-                                <td>
-                                  {record.description ? (
-                                    <small title={record.description}>
-                                      {record.description.length > 30 
-                                        ? record.description.substring(0, 30) + '...' 
-                                        : record.description}
+                            gpsTrace.gps_track.map((record) => {
+                              // Normalizar campos (backend pode retornar camelCase ou snake_case)
+                              const timestamp = record.gpsTimestamp || record.gps_timestamp;
+                              const eventType = record.eventType || record.event_type || 'NORMAL';
+                              const speedKmhRaw = record.speedKmh !== undefined ? record.speedKmh : record.speed_kmh;
+                              const isOffline = record.isOffline !== undefined ? record.isOffline : (record.is_offline || false);
+                              
+                              // Converter latitude e longitude (podem vir como string, number ou BigDecimal)
+                              const latRaw = record.latitude;
+                              const lngRaw = record.longitude;
+                              const lat = latRaw !== null && latRaw !== undefined 
+                                ? (typeof latRaw === 'string' ? parseFloat(latRaw) : Number(latRaw))
+                                : null;
+                              const lng = lngRaw !== null && lngRaw !== undefined
+                                ? (typeof lngRaw === 'string' ? parseFloat(lngRaw) : Number(lngRaw))
+                                : null;
+                              
+                              // Converter velocidade (pode vir como string, number ou BigDecimal)
+                              const speedKmh = speedKmhRaw !== null && speedKmhRaw !== undefined
+                                ? (typeof speedKmhRaw === 'string' ? parseFloat(speedKmhRaw) : Number(speedKmhRaw))
+                                : null;
+                              
+                              // Tentar parsear timestamp em diferentes formatos
+                              let timestampDisplay = 'N/A';
+                              
+                              if (timestamp) {
+                                try {
+                                  // Backend retorna LocalDateTime como ISO-8601 string (ex: "2025-01-15T08:15:00")
+                                  // Spring Boot serializa LocalDateTime como "YYYY-MM-DDTHH:mm:ss" (sem timezone)
+                                  let dateStr = String(timestamp).trim();
+                                  
+                                  // Se não tem timezone, trata como hora local do servidor
+                                  // Formato esperado: "2025-01-15T08:15:00" ou "2025-01-15T08:15:00.123"
+                                  let dateObj: Date;
+                                  
+                                  if (dateStr.includes('T')) {
+                                    // Formato ISO-8601
+                                    // Se não tem timezone, assume que é hora local (não adiciona Z)
+                                    dateObj = new Date(dateStr);
+                                    
+                                    // Verifica se o parse foi bem-sucedido
+                                    if (isNaN(dateObj.getTime())) {
+                                      // Tenta adicionar timezone se não funcionou
+                                      if (!dateStr.includes('Z') && !dateStr.includes('+') && !dateStr.match(/[+-]\d{2}:\d{2}$/)) {
+                                        dateObj = new Date(dateStr + 'Z');
+                                      } else {
+                                        throw new Error('Invalid date format');
+                                      }
+                                    }
+                                  } else {
+                                    // Formato não reconhecido, tenta parsear direto
+                                    dateObj = new Date(dateStr);
+                                  }
+                                  
+                                  if (!isNaN(dateObj.getTime())) {
+                                    timestampDisplay = dateObj.toLocaleString('pt-BR', {
+                                      year: 'numeric',
+                                      month: '2-digit',
+                                      day: '2-digit',
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                      second: '2-digit'
+                                    });
+                                  } else {
+                                    // Se ainda falhar, mostra o valor original
+                                    timestampDisplay = dateStr;
+                                  }
+                                } catch (e) {
+                                  // Em caso de erro, mostra o valor original
+                                  timestampDisplay = String(timestamp);
+                                }
+                              }
+                              
+                              return (
+                                <tr key={record.id}>
+                                  <td>
+                                    {timestampDisplay}
+                                    {isOffline && (
+                                      <span className="badge bg-secondary ms-1" title="Sincronizado offline">
+                                        Offline
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td>
+                                    <small>
+                                      {lat ? lat.toFixed(6) : 'N/A'}, {lng ? lng.toFixed(6) : 'N/A'}
                                     </small>
-                                  ) : '-'}
-                                </td>
-                              </tr>
-                            ))
+                                  </td>
+                                  <td>
+                                    {eventType ? (
+                                      <span className={`badge ${
+                                        eventType === 'POINT_COLLECTED' ? 'bg-success' :
+                                        eventType === 'PROBLEM' || eventType === 'POINT_PROBLEM' ? 'bg-danger' :
+                                        eventType === 'START' ? 'bg-primary' :
+                                        eventType === 'END' ? 'bg-info' :
+                                        eventType === 'NORMAL' ? 'bg-secondary' :
+                                        eventType === 'STOP' ? 'bg-warning' :
+                                        eventType === 'BREAK' ? 'bg-warning' :
+                                        'bg-secondary'
+                                      }`}>
+                                        {eventType}
+                                      </span>
+                                    ) : (
+                                      <span className="badge bg-secondary">N/A</span>
+                                    )}
+                                  </td>
+                                  <td>
+                                    {speedKmh !== null && speedKmh !== undefined && !isNaN(speedKmh) ? `${speedKmh.toFixed(1)} km/h` : '-'}
+                                  </td>
+                                  <td>
+                                    {record.description ? (
+                                      <small title={record.description}>
+                                        {record.description.length > 30 
+                                          ? record.description.substring(0, 30) + '...' 
+                                          : record.description}
+                                      </small>
+                                    ) : '-'}
+                                  </td>
+                                </tr>
+                              );
+                            })
                           )}
                         </tbody>
                       </table>
@@ -368,7 +469,8 @@ const Executions: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       </div>
     </Layout>

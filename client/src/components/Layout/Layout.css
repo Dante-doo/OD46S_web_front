@@ -248,6 +248,13 @@
   flex: 1;
   padding: 2rem;
   overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+/* Garantir que modais não sejam cortados */
+.content-wrapper > * {
   position: relative;
   z-index: 1;
 }
